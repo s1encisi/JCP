@@ -1,0 +1,10 @@
+# Environment used for static/API checks and future matched MOEA runs.
+numpy==1.26.4
+pandas==2.3.3
+scipy==1.16.0
+scikit-learn==1.7.2
+joblib==1.5.2
+openpyxl==3.1.5
+torch==2.12.1
+pymoo==0.6.1.5
+matplotlib==3.10.6

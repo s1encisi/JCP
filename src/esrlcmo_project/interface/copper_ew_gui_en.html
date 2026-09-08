@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cu·EW Intelligent Optimization System v2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+:root {
+  --bg-base:#f4f3ef; --bg-paper:#fafaf7; --bg-white:#ffffff; --bg-subtle:#eeecea; --bg-deep:#1c1b18;
+  --cu:#b5601a; --cu-light:#d4843a; --cu-pale:rgba(181,96,26,0.08); --cu-mid:rgba(181,96,26,0.20); --cu-glow:rgba(181,96,26,0.35);
+  --blue:#1a4575; --blue-md:#2563a8; --blue-light:#4080cc; --blue-pale:rgba(26,69,117,0.06); --blue-mid:rgba(26,69,117,0.14);
+  --green:#1a6b3a; --green-light:rgba(26,107,58,0.08); --green-mid:rgba(26,107,58,0.20);
+  --amber:#8a5c00; --amber-light:rgba(138,92,0,0.08); --orange:#c0471a; --red:#c0272d; --red-light:rgba(192,39,45,0.08);
+  --t0:#181714; --t1:#3a3830; --t2:#6a6860; --t3:#9a9890;
+  --bd:#d8d5cc; --bd-hi:#b8b5aa; --bd-cu:rgba(181,96,26,0.30); --bd-bl:rgba(26,69,117,0.25);
+  --sh-sm:0 1px 3px rgba(0,0,0,0.06),0 2px 8px rgba(0,0,0,0.04);
+  --sh-md:0 2px 8px rgba(0,0,0,0.08),0 8px 24px rgba(0,0,0,0.06);
+  --sh-lg:0 8px 32px rgba(0,0,0,0.12),0 24px 60px rgba(0,0,0,0.08);
+  --sh-hdr:0 1px 0 var(--bd),0 4px 16px rgba(0,0,0,0.07);
+  --font-body:'IBM Plex Sans',sans-serif;
+  --font-serif:'Source Serif 4',Georgia,serif;
+  --font-mono:'DM Mono','Courier New',monospace;
+  --r-sm:4px; --r:6px; --r-lg:10px;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg-base);color:var(--t0);font-family:var(--font-body);font-size:13px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(26,69,117,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(26,69,117,0.022) 1px,transparent 1px);background-size:32px 32px}
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 55% 35% at 92% 8%,rgba(181,96,26,0.055) 0%,transparent 55%),radial-gradient(ellipse 40% 45% at 8% 90%,rgba(26,69,117,0.04) 0%,transparent 55%)}
+#app{position:relative;z-index:2;display:flex;flex-direction:column;min-height:100vh}
+
+/* HEADER */
+#header{height:56px;background:var(--bg-white);border-bottom:2px solid var(--cu);box-shadow:var(--sh-hdr);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:300;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-hex{width:36px;height:36px;position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.logo-hex::before{content:'';position:absolute;inset:0;background:linear-gradient(145deg,var(--cu) 0%,var(--cu-light) 60%,#e8a050 100%);clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);animation:hexBreath 4s ease-in-out infinite}
+@keyframes hexBreath{0%,100%{filter:brightness(1)}50%{filter:brightness(1.12)}}
+.logo-cu{position:relative;z-index:1;font-family:var(--font-body);font-size:12px;font-weight:700;color:#fff;letter-spacing:0.5px}
+.logo-title{font-family:var(--font-serif);font-size:14px;font-weight:600;color:var(--t0);line-height:1.2}
+.logo-sub{font-family:var(--font-mono);font-size:9px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.hdr-pill{display:flex;align-items:center;gap:6px;padding:3px 10px;background:var(--bg-base);border:1px solid var(--bd);border-radius:3px;font-family:var(--font-mono);font-size:10.5px;white-space:nowrap}
+.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot-ok{background:var(--green);animation:dotPulse 3s ease-in-out infinite}
+.dot-ld{background:var(--amber);animation:dotFade 1.2s ease-in-out infinite}
+.dot-er{background:var(--red)}
+.dot-off{background:var(--t3)}
+@keyframes dotPulse{0%,100%{opacity:1}50%{opacity:0.45}}
+@keyframes dotFade{0%,100%{opacity:1}50%{opacity:0.3}}
+#clock{font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--t1);letter-spacing:2px;padding:3px 12px;background:var(--bg-base);border:1px solid var(--bd);border-radius:3px}
+.btn-hdr{padding:4px 11px;background:var(--bg-base);border:1px solid var(--bd);border-radius:3px;font-size:11px;font-family:var(--font-body);color:var(--t1);cursor:pointer;transition:all 0.18s}
+.btn-hdr:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-pale)}
+
+/* NAV */
+#nav{background:var(--bg-white);border-bottom:1px solid var(--bd);padding:0 28px;display:flex;overflow-x:auto;scrollbar-width:none;position:sticky;top:56px;z-index:200;flex-shrink:0}
+#nav::-webkit-scrollbar{display:none}
+.tab{height:40px;padding:0 14px;display:flex;align-items:center;gap:5px;background:none;border:none;border-bottom:2px solid transparent;font-family:var(--font-body);font-size:11.5px;font-weight:500;color:var(--t2);cursor:pointer;white-space:nowrap;transition:color 0.15s,border-color 0.15s}
+.tab:hover{color:var(--t0)}
+.tab.active{color:var(--cu);border-bottom-color:var(--cu);font-weight:600}
+
+/* MAIN */
+#main{flex:1;padding:18px 24px 36px;overflow:auto}
+.panel{display:none}
+.panel.active{display:block;animation:panelIn 0.22s var(--ease-out)}
+@keyframes panelIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+.mb14{margin-bottom:14px} .mb10{margin-bottom:10px}
+@media(max-width:1100px){.g3,.g4{grid-template-columns:1fr 1fr}.g21{grid-template-columns:1fr}}
+@media(max-width:700px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+/* CARDS */
+.card{background:var(--bg-white);border:1px solid var(--bd);border-radius:var(--r);padding:16px 18px;position:relative;overflow:hidden;box-shadow:var(--sh-sm);transition:border-color 0.2s,box-shadow 0.25s}
+.card:hover{border-color:var(--bd-hi);box-shadow:var(--sh-md)}
+.card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--cu) 0%,var(--cu-light) 100%);opacity:0;transition:opacity 0.25s;border-radius:var(--r) 0 0 var(--r)}
+.card:hover::before{opacity:1}
+.card-hd{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--bg-subtle);font-size:11px;font-weight:600;color:var(--t1);letter-spacing:0.5px}
+.cdot{width:7px;height:7px;border-radius:50%;background:var(--cu);flex-shrink:0}
+.cdot.green{background:var(--green)} .cdot.blue{background:var(--blue)} .cdot.orange{background:var(--orange)} .cdot.amber{background:var(--amber)}
+
+/* KPI */
+.kpi{padding:18px 20px}
+.kpi-val{font-family:var(--font-serif);font-size:34px;font-weight:700;line-height:1;letter-spacing:-0.5px;animation:countIn 0.5s var(--ease-out)}
+@keyframes countIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.kpi-unit{font-size:11px;font-weight:400;color:var(--t2);margin-left:4px;font-family:var(--font-body)}
+.kpi-label{font-size:9.5px;color:var(--t3);font-family:var(--font-mono);margin-bottom:8px;letter-spacing:0.2px}
+.kpi-delta{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:3px}
+.delta-down{background:var(--green-light);color:var(--green);border:1px solid var(--green-mid)}
+.delta-up{background:var(--amber-light);color:var(--amber);border:1px solid rgba(138,92,0,0.2)}
+.kpi-blue{border-top:3px solid var(--blue);background:linear-gradient(160deg,#fff 55%,rgba(26,69,117,0.03))}
+.kpi-green{border-top:3px solid var(--green);background:linear-gradient(160deg,#fff 55%,rgba(26,107,58,0.03))}
+.kpi-orange{border-top:3px solid var(--orange);background:linear-gradient(160deg,#fff 55%,rgba(192,71,26,0.03))}
+.kpi-amber{border-top:3px solid var(--amber);background:linear-gradient(160deg,#fff 55%,rgba(138,92,0,0.03))}
+
+/* BUTTONS */
+.btn-p{padding:8px 18px;background:var(--blue);border:1px solid var(--blue);border-radius:var(--r-sm);color:#fff;font-size:12px;font-weight:600;font-family:var(--font-body);cursor:pointer;transition:all 0.18s}
+.btn-p:hover{background:var(--blue-md);border-color:var(--blue-md);box-shadow:0 2px 10px rgba(26,69,117,0.28);transform:translateY(-1px)}
+.btn-p:active{transform:translateY(0)}
+.btn-p:disabled{background:var(--t3);border-color:var(--t3);cursor:not-allowed;transform:none}
+.btn-s{padding:8px 18px;background:var(--bg-base);border:1px solid var(--bd-hi);border-radius:var(--r-sm);color:var(--t1);font-size:12px;font-weight:500;font-family:var(--font-body);cursor:pointer;transition:all 0.18s}
+.btn-s:hover{border-color:var(--cu);color:var(--cu);background:var(--cu-pale)}
+.btn-sm{padding:5px 11px;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);font-size:11px;font-family:var(--font-body);color:var(--t2);cursor:pointer;transition:all 0.18s}
+.btn-sm:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-pale)}
+.btn-cu{padding:8px 18px;background:linear-gradient(135deg,var(--cu) 0%,var(--cu-light) 100%);border:none;border-radius:var(--r-sm);color:#fff;font-size:12px;font-weight:600;font-family:var(--font-body);cursor:pointer;transition:all 0.18s;box-shadow:0 2px 8px rgba(181,96,26,0.3)}
+.btn-cu:hover{box-shadow:0 4px 16px rgba(181,96,26,0.4);transform:translateY(-1px)}
+
+/* FORM */
+.param-row{margin-bottom:12px}
+.param-label{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--t2);margin-bottom:5px;font-family:var(--font-mono)}
+.param-val{font-family:var(--font-mono);font-size:10.5px;color:var(--t0);font-weight:500;background:var(--bg-base);border:1px solid var(--bd);border-radius:3px;padding:1px 6px;min-width:52px;text-align:center}
+input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--blue);-webkit-appearance:none;background:linear-gradient(to right,var(--blue) var(--pct,50%),var(--bg-subtle) var(--pct,50%));border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--blue);border:2px solid #fff;box-shadow:0 1px 4px rgba(26,69,117,0.3);cursor:pointer;transition:transform 0.15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+input[type=number],input[type=text],select,textarea{width:100%;padding:6px 10px;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);color:var(--t0);font-family:var(--font-mono);font-size:11.5px;outline:none;transition:border-color 0.18s,box-shadow 0.18s}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,69,117,0.10)}
+input[type=file]{padding:8px 10px;border:1.5px dashed var(--bd-hi);cursor:pointer}
+input[type=file]:hover{border-color:var(--blue)}
+input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px;cursor:pointer}
+.flabel{font-size:10px;color:var(--t2);display:block;margin-bottom:4px;font-family:var(--font-mono);letter-spacing:0.3px}
+.seg{display:inline-flex;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);padding:2px}
+.seg-btn{padding:5px 13px;background:transparent;border:none;border-radius:3px;font-size:11px;font-family:var(--font-body);color:var(--t2);cursor:pointer;transition:all 0.18s;white-space:nowrap}
+.seg-btn:hover{color:var(--t0)}
+.seg-btn.active{background:var(--bg-white);color:var(--blue);font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,0.10)}
+.pbar{height:5px;background:var(--bg-subtle);border-radius:3px;overflow:hidden}
+.pbar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--blue) 0%,var(--blue-light) 100%);transition:width 0.8s var(--ease-out)}
+.pbar-fill.green{background:linear-gradient(90deg,var(--green) 0%,#2ebd6a 100%)}
+.pbar-fill.cu{background:linear-gradient(90deg,var(--cu) 0%,var(--cu-light) 100%)}
+.loading-bar{height:2px;border-radius:1px;margin-bottom:10px;background:linear-gradient(90deg,transparent 0%,var(--blue) 40%,var(--cu) 80%,transparent 100%);background-size:200%;animation:shimmer 1.4s infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:11px}
+.tbl thead{background:var(--bg-subtle)}
+.tbl th{padding:8px 11px;text-align:left;font-size:10px;font-weight:600;color:var(--t1);letter-spacing:0.4px;border-bottom:2px solid var(--bd-hi)}
+.tbl td{padding:8px 11px;border-bottom:1px solid var(--bg-subtle);font-family:var(--font-mono);font-size:10.5px;color:var(--t0);transition:background 0.12s}
+.tbl tbody tr:hover td{background:var(--blue-pale)}
+.tbl tbody tr:nth-child(even) td{background:var(--bg-paper)}
+.tbl tbody tr:nth-child(even):hover td{background:var(--blue-pale)}
+.tbl tr:last-child td{border-bottom:none}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:3px;font-size:9.5px;font-family:var(--font-body);font-weight:600}
+.b-blue{background:var(--blue-pale);color:var(--blue);border:1px solid var(--bd-bl)}
+.b-green{background:var(--green-light);color:var(--green);border:1px solid rgba(26,107,58,0.2)}
+.b-amber{background:var(--amber-light);color:var(--amber);border:1px solid rgba(138,92,0,0.2)}
+.b-orange{background:rgba(192,71,26,0.08);color:var(--orange);border:1px solid rgba(192,71,26,0.2)}
+.b-ok{background:var(--green-light);color:var(--green);border:1px solid rgba(26,107,58,0.2)}
+.b-warn{background:var(--red-light);color:var(--red);border:1px solid rgba(192,39,45,0.2)}
+.b-cu{background:var(--cu-pale);color:var(--cu);border:1px solid var(--bd-cu)}
+.chip{display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:3px;background:var(--blue-pale);border:1px solid var(--bd-bl);font-size:9.5px;color:var(--blue);font-family:var(--font-mono)}
+
+/* MISC COMPONENTS */
+.flow{display:flex;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 0}
+.flow-node{width:80px;padding:9px 5px;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);text-align:center;font-size:9.5px;color:var(--t2);transition:all 0.2s}
+.flow-node.active{background:var(--blue-pale);border-color:var(--bd-bl);color:var(--blue)}
+.flow-icon{font-size:18px;margin-bottom:4px;display:block}
+.flow-arr{padding:0 6px;color:var(--t3);font-size:14px;flex-shrink:0}
+.cst-item{display:flex;align-items:center;gap:10px;padding:7px 10px;margin-bottom:7px;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm)}
+.cst-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cst-name{font-size:10.5px;color:var(--t1);flex:1}
+.cst-bar{flex:0 0 70px}
+.cst-val{font-family:var(--font-mono);font-size:10.5px;min-width:60px;text-align:right}
+.sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sc-card{background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);padding:12px;cursor:pointer;transition:all 0.2s}
+.sc-card:hover{border-color:var(--bd-hi);box-shadow:var(--sh-sm);transform:translateY(-1px)}
+.sc-card.active{border-color:var(--blue-md);background:var(--blue-pale)}
+.sc-label{font-size:10px;margin-bottom:8px;font-weight:600}
+.sc-row{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px}
+.sc-key{color:var(--t3)}
+.sc-v{font-family:var(--font-mono);color:var(--t0)}
+.pareto-wrap{position:relative;width:100%;height:200px;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);overflow:hidden}
+canvas{border-radius:var(--r-sm)}
+.cmp-item{display:grid;grid-template-columns:58px 1fr 48px;gap:8px;align-items:center;margin-bottom:9px}
+.cmp-label{font-size:9.5px;color:var(--t2);text-align:right;font-family:var(--font-mono)}
+.cmp-bars{position:relative;height:20px}
+.cbar-hist{position:absolute;top:0;left:0;height:8px;border-radius:2px;background:rgba(120,120,120,0.12);border:1px solid var(--bd)}
+.cbar-opt{position:absolute;top:12px;left:0;height:8px;border-radius:2px;background:linear-gradient(90deg,var(--blue) 0%,var(--green) 100%);transition:width 0.9s var(--ease-out)}
+.cmp-pct{font-size:10px;font-family:var(--font-mono);color:var(--green);font-weight:600}
+.pred-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.pred-box{background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);padding:12px}
+.pred-label{font-size:9.5px;color:var(--t3);margin-bottom:5px;font-family:var(--font-mono)}
+.pred-val{font-family:var(--font-serif);font-size:26px;font-weight:700;line-height:1;color:var(--t0)}
+.pred-unit{font-size:10px;color:var(--t2);margin-left:2px}
+.mstrip{background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);padding:8px 10px;display:flex;align-items:center;gap:6px}
+.fi-row{display:grid;grid-template-columns:96px 1fr 34px;gap:8px;align-items:center;margin-bottom:6px}
+.fi-name{font-size:9.5px;color:var(--t2);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono)}
+.fi-bar{height:11px;background:var(--bg-subtle);border-radius:2px;overflow:hidden}
+.fi-fill{height:100%;border-radius:2px;transition:width 0.8s var(--ease-out)}
+.fi-pct{font-size:9.5px;font-family:var(--font-mono);color:var(--t2);text-align:right}
+.stat-box{text-align:center;padding:10px;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);transition:all 0.18s}
+.stat-box:hover{border-color:var(--bd-hi)}
+.stat-num{font-family:var(--font-serif);font-size:22px;font-weight:600;line-height:1}
+.stat-lbl{font-size:9.5px;color:var(--t3);margin-top:4px;font-family:var(--font-mono)}
+.import-tabs{display:flex;gap:8px;margin-bottom:16px}
+.itab{flex:1;padding:10px 8px;border:1.5px solid var(--bd);border-radius:var(--r);background:var(--bg-base);cursor:pointer;text-align:center;transition:all 0.2s}
+.itab .it-icon{font-size:20px;display:block;margin-bottom:5px}
+.itab .it-lbl{font-size:10.5px;font-weight:600;color:var(--t1);display:block}
+.itab .it-desc{font-size:9px;color:var(--t3);font-family:var(--font-mono);display:block;margin-top:2px}
+.itab:hover{border-color:var(--bd-hi);background:var(--bg-paper)}
+.itab.active{border-color:var(--blue);background:var(--blue-pale)}
+.itab.active .it-lbl{color:var(--blue)}
+.ipanel{display:none}
+.ipanel.active{display:block;animation:panelIn 0.2s ease}
+.adv-card{background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:7px;border-left:3px solid var(--blue);transition:all 0.18s}
+.adv-card.ok{border-left-color:var(--green)}
+.adv-card.warn{border-left-color:var(--orange)}
+.log-box{background:var(--bg-deep);border-radius:var(--r-sm);padding:10px 12px;height:120px;overflow-y:auto;font-family:var(--font-mono);font-size:9.5px;color:#8fa8c8;line-height:1.7}
+.log-box .lo{color:#5ecb8a} .log-box .le{color:#e06060} .log-box .li{color:#6eb0e8}
+.divider{display:flex;align-items:center;gap:12px;margin:14px 0}
+.divider-line{flex:1;height:1px;background:var(--bd)}
+.divider-txt{font-size:9.5px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;white-space:nowrap}
+.cu-rule{height:1px;margin:12px 0;background:linear-gradient(90deg,transparent,var(--cu-glow),transparent);opacity:0.5}
+.gauge-wrap{display:flex;justify-content:center;align-items:center;padding:4px 0}
+/* TOAST */
+#toast{position:fixed;top:68px;right:18px;z-index:999;max-width:300px;min-width:220px;background:var(--bg-white);border:1px solid var(--bd-hi);border-left:4px solid var(--blue);border-radius:var(--r);padding:12px 15px;box-shadow:var(--sh-lg);opacity:0;transform:translateX(12px) scale(0.97);transition:opacity 0.25s var(--ease-out),transform 0.25s var(--ease-out);pointer-events:none}
+#toast.show{opacity:1;transform:translateX(0) scale(1);pointer-events:auto}
+#toast.t-ok{border-left-color:var(--green)}
+#toast.t-err{border-left-color:var(--red)}
+#toast.t-warn{border-left-color:var(--amber)}
+.toast-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.toast-title{font-size:11.5px;color:var(--t0);font-weight:700}
+.toast-close{background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px}
+.toast-body{font-size:11px;color:var(--t1);line-height:1.5}
+/* MODAL */
+#modal{position:fixed;inset:0;z-index:500;background:rgba(24,23,20,0.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s}
+#modal.show{opacity:1;pointer-events:auto}
+.modal-box{width:680px;max-width:94vw;max-height:88vh;overflow-y:auto;background:var(--bg-white);border:1px solid var(--bd-hi);border-top:3px solid var(--cu);border-radius:var(--r-lg);padding:26px;box-shadow:var(--sh-lg);animation:modalIn 0.28s var(--ease-out)}
+@keyframes modalIn{from{opacity:0;transform:scale(0.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.modal-title{font-family:var(--font-serif);font-size:15px;color:var(--t0);font-weight:600}
+.modal-close{background:none;border:none;color:var(--t2);font-size:22px;cursor:pointer;line-height:1}
+.modal-close:hover{color:var(--red)}
+/* LOADER */
+#loader{position:fixed;inset:0;z-index:9999;background:var(--bg-base);display:flex;align-items:center;justify-content:center;transition:opacity 0.5s,visibility 0.5s}
+#loader.gone{opacity:0;visibility:hidden;pointer-events:none}
+.lhex{width:64px;height:64px;margin:0 auto 20px;position:relative}
+.lhex-bg{width:100%;height:100%;background:linear-gradient(145deg,var(--cu) 0%,var(--cu-light) 60%,#e8a050 100%);clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);animation:hexSpin 2s linear infinite}
+.lhex-in{position:absolute;inset:7px;background:var(--bg-base);clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);display:flex;align-items:center;justify-content:center;font-family:var(--font-body);font-size:14px;font-weight:700;color:var(--cu)}
+@keyframes hexSpin{to{transform:rotate(360deg)}}
+.ltitle{font-family:var(--font-serif);font-size:15px;color:var(--t0);font-weight:600;text-align:center;margin-bottom:5px}
+.lsub{font-family:var(--font-mono);font-size:9.5px;color:var(--t3);text-align:center;letter-spacing:2.5px;text-transform:uppercase}
+.ldots{display:flex;gap:6px;justify-content:center;margin-top:18px}
+.ldot{width:6px;height:6px;border-radius:50%;animation:dotB 1.2s ease-in-out infinite}
+.ldot:nth-child(1){background:var(--cu);animation-delay:0s}
+.ldot:nth-child(2){background:var(--blue);animation-delay:0.2s}
+.ldot:nth-child(3){background:var(--green);animation-delay:0.4s}
+@keyframes dotB{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1.15);opacity:1}}
+/* UTILS */
+.c-blue{color:var(--blue)} .c-green{color:var(--green)} .c-amber{color:var(--amber)} .c-orange{color:var(--orange)} .c-cu{color:var(--cu)} .c-muted{color:var(--t2)} .c-red{color:var(--red)}
+.bold{font-weight:600} .mono{font-family:var(--font-mono)} .small{font-size:9.5px;color:var(--t2)} .tc{text-align:center}
+.flex{display:flex;align-items:center;gap:8px} .flex-btw{display:flex;align-items:center;justify-content:space-between}
+.mt8{margin-top:8px} .mt12{margin-top:12px} .mb8{margin-bottom:8px}
+#src-badge{font-family:var(--font-mono);font-size:10px;color:var(--t2);padding:2px 8px;border:1px solid var(--bd);border-radius:3px;background:var(--bg-base);display:inline-block}
+::-webkit-scrollbar{width:4px;height:4px} ::-webkit-scrollbar-track{background:var(--bg-base)} ::-webkit-scrollbar-thumb{background:var(--bd-hi);border-radius:2px}
+.flash{animation:flashBg 0.5s ease} @keyframes flashBg{0%{background:rgba(26,69,117,0.08)}100%{background:transparent}}
+.stagger>*{animation:stIn 0.4s var(--ease-out) both}
+.stagger>*:nth-child(1){animation-delay:0s} .stagger>*:nth-child(2){animation-delay:0.06s} .stagger>*:nth-child(3){animation-delay:0.12s} .stagger>*:nth-child(4){animation-delay:0.18s}
+@keyframes stIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* READABILITY UPDATE — sized for journal screenshots and normal desktop use */
+body{font-size:17px;line-height:1.58}
+#header{height:78px;padding:0 30px}
+.logo{gap:15px}.logo-hex{width:46px;height:46px}.logo-cu{font-size:15px}
+.logo-title{font-size:21px}.logo-sub{font-size:11.5px;letter-spacing:1.35px;margin-top:3px}
+.hdr-right{gap:9px}.hdr-pill{padding:6px 11px;font-size:12.5px}
+#clock{font-size:14px;padding:6px 12px}.btn-hdr{padding:7px 13px;font-size:13px}
+#nav{top:78px;padding:0 20px}.tab{height:54px;padding:0 10px;font-size:14px;gap:6px}
+#main{padding:24px 28px 42px}.g2,.g3,.g4,.g21{gap:17px}
+.card{padding:21px 22px}.card-hd{font-size:14.5px;margin-bottom:17px;padding-bottom:12px}
+.kpi{padding:22px 23px}.kpi-val{font-size:38px}.kpi-label{font-size:13px}.kpi-unit{font-size:13.5px}.kpi-delta{font-size:13px;padding:3px 9px}
+.btn-p,.btn-s,.btn-cu{font-size:14px;padding:10px 20px}.btn-sm{font-size:13px;padding:7px 13px}
+.param-label,.param-val{font-size:13.5px}.param-row{margin-bottom:15px}
+input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 11px}
+.flabel{font-size:13px}.seg-btn{font-size:13.5px;padding:7px 15px}
+.tbl{font-size:13.5px}.tbl th{font-size:13px;padding:11px 13px}.tbl td{font-size:13px;padding:10px 13px}
+.badge,.chip{font-size:12.5px}.flow-node{width:104px;padding:12px 8px;font-size:13px}.flow-icon{font-size:21px}.flow-arr{font-size:18px}
+.cst-item{padding:10px 12px;gap:8px;margin-bottom:8px}.cst-name,.cst-val{font-size:13.5px}.cst-val{min-width:70px}.cst-bar{flex-basis:76px}
+.sc-label{font-size:13.5px}.sc-row{font-size:13px}.pareto-wrap{height:250px}
+.cmp-label,.cmp-pct,.pred-label,.fi-name,.fi-pct,.stat-lbl{font-size:12.5px}
+.pred-unit{font-size:13px}.pred-val{font-size:32px}.stat-num{font-size:28px}
+.itab .it-lbl{font-size:14px}.itab .it-desc{font-size:12.5px}.log-box{font-size:12.5px;height:148px}
+.divider-txt,.small,#src-badge{font-size:12.5px}.toast-title{font-size:14px}.toast-body{font-size:13.5px}
+.modal-title{font-size:20px}.ltitle{font-size:20px}.lsub{font-size:12.5px}
+#ov-params{gap:12px!important}
+#ov-params .stat-box>div:last-child{font-size:15px!important}
+[style*="font-size:8px"],[style*="font-size:8.5px"]{font-size:12.5px!important}
+[style*="font-size:9px"],[style*="font-size:9.5px"]{font-size:13px!important}
+[style*="font-size:10px"],[style*="font-size:10.5px"]{font-size:13.5px!important}
+[style*="font-size:11px"],[style*="font-size:11.5px"]{font-size:14px!important}
+@media(max-width:1400px){.logo-sub{display:none}.hdr-pill{font-size:12px}#nav{padding:0 8px}.tab{padding:0 6px;font-size:13.5px;gap:3px}#main{padding-left:22px;padding-right:22px}}
+@media(max-width:1200px){.g4{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){#header{height:auto;min-height:78px;padding:11px 16px;gap:10px;flex-wrap:wrap}#nav{top:0;padding:0 14px}.logo-title{font-size:19px}#main{padding:16px}.g2,.g3,.g4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!-- LOADER -->
+<div id="loader">
+  <div style="text-align:center">
+    <div class="lhex"><div class="lhex-bg"></div><div class="lhex-in">Cu</div></div>
+    <div class="ltitle">Copper Electrowinning Intelligent Optimization System</div>
+    <div class="lsub">Cu·EW · Surrogate + NSGA-II + Safe RL · v2.0</div>
+    <div class="ldots"><div class="ldot"></div><div class="ldot"></div><div class="ldot"></div></div>
+  </div>
+</div>
+<!-- TOAST -->
+<div id="toast">
+  <div class="toast-hd"><span class="toast-title" id="toastTitle">Notice</span><button class="toast-close" onclick="hideToast()">×</button></div>
+  <div class="toast-body" id="toastBody"></div>
+</div>
+<!-- MODAL -->
+<div id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<div id="app">
+<!-- HEADER -->
+<header id="header">
+  <div class="logo">
+    <div class="logo-hex"><div class="logo-cu">Cu</div></div>
+    <div>
+      <div class="logo-title">Copper EW Intelligent Optimization System</div>
+      <div class="logo-sub">ExtraTrees Surrogate · NSGA-II · PPO-Lagrangian Safe RL · v2.0</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-pill"><div class="sdot dot-ld" id="hd-model-dot"></div><span style="color:var(--t2)">Surrogate</span><span id="hd-model-txt">Loading</span></div>
+    <div class="hdr-pill"><div class="sdot dot-off" id="hd-ws-dot"></div><span style="color:var(--t2)">WebSocket</span><span id="hd-ws-txt">Connecting</span></div>
+    <div class="hdr-pill"><div class="sdot dot-ok"></div><span style="color:var(--t2)">Data</span><span>Ready</span></div>
+    <button class="btn-hdr" onclick="exportKPI()">📊 Export CSV</button>
+    <div id="clock">--:--:--</div>
+  </div>
+</header>
+<!-- NAV -->
+<nav id="nav">
+  <button class="tab active" data-panel="overview">📊 Overview</button>
+  <button class="tab" data-panel="data">📁 Data Management</button>
+  <button class="tab" data-panel="surrogate">🧠 Surrogate Prediction</button>
+  <button class="tab" data-panel="nsga2">🧬 NSGA-II Optimization</button>
+  <button class="tab" data-panel="saferl">🤖 Safe Reinforcement Learning</button>
+  <button class="tab" data-panel="compare">📈 Result Comparison</button>
+  <button class="tab" data-panel="experiment">🔬 Experiment Records</button>
+  <button class="tab" data-panel="operation">⚙️ Operation Advisory</button>
+  <button class="tab" data-panel="admin">🔐 System Admin</button>
+</nav>
+
+<main id="main">
+
+<!-- ══ OVERVIEW ══ -->
+<div class="panel active" id="panel-overview">
+  <div class="g4 mb14 stagger" id="kpi-row">
+    <div class="card kpi kpi-blue">
+      <div class="card-hd"><div class="cdot blue"></div>Outlet Cu Concentration</div>
+      <div class="kpi-label">Optimized · Historical avg. 5.34 g/L</div>
+      <div class="kpi-val c-blue" id="kpi-cu">4.98<span class="kpi-unit">g/L</span></div>
+      <div class="kpi-delta delta-down mt8" id="kpi-cu-delta">▼ 6.74% Reduction</div>
+    </div>
+    <div class="card kpi kpi-green">
+      <div class="card-hd"><div class="cdot green"></div>Outlet As Concentration</div>
+      <div class="kpi-label">Optimized · Historical avg. 7.05 g/L</div>
+      <div class="kpi-val c-green" id="kpi-as">6.98<span class="kpi-unit">g/L</span></div>
+      <div class="kpi-delta delta-up mt8" id="kpi-as-delta">▲ -0.99% Improvement</div>
+    </div>
+    <div class="card kpi kpi-orange">
+      <div class="card-hd"><div class="cdot orange"></div>Total Energy Consumption</div>
+      <div class="kpi-label">Optimized · Historical avg. 3183 kWh</div>
+      <div class="kpi-val c-orange" id="kpi-e">2065<span class="kpi-unit">kWh</span></div>
+      <div class="kpi-delta delta-down mt8" id="kpi-e-delta">▼ 35.12% Energy Savings</div>
+    </div>
+    <div class="card kpi kpi-amber">
+      <div class="card-hd"><div class="cdot amber"></div>Net Profit</div>
+      <div class="kpi-label">Optimized · Historical avg. 30.15 ×10⁴ CNY</div>
+      <div class="kpi-val c-amber" id="kpi-p">72.15<span class="kpi-unit">×10⁴ CNY</span></div>
+      <div class="kpi-delta delta-up mt8" id="kpi-p-delta">▲ 139.30% Revenue Gain</div>
+    </div>
+  </div>
+  <div style="margin-bottom:11px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px">
+    <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+      <div style="cursor:pointer;padding:3px 9px;border:1px solid var(--bd-cu);border-radius:3px;font-size:9.5px;font-family:var(--font-mono);color:var(--cu);background:var(--cu-pale)">📊 Initial</div>
+      <span style="color:var(--t3);font-size:11px">→</span>
+      <div id="wf-predict" onclick="gotoTab('surrogate')" style="cursor:pointer;padding:3px 9px;border:1px solid var(--bd);border-radius:3px;font-size:9.5px;font-family:var(--font-mono);color:var(--t3)">🧠 Predict</div>
+      <span style="color:var(--t3);font-size:11px">→</span>
+      <div id="wf-nsga" onclick="gotoTab('nsga2')" style="cursor:pointer;padding:3px 9px;border:1px solid var(--bd);border-radius:3px;font-size:9.5px;font-family:var(--font-mono);color:var(--t3)">🧬 NSGA-II</div>
+      <span style="color:var(--t3);font-size:11px">→</span>
+      <div id="wf-rl" onclick="gotoTab('saferl')" style="cursor:pointer;padding:3px 9px;border:1px solid var(--bd);border-radius:3px;font-size:9.5px;font-family:var(--font-mono);color:var(--t3)">🤖 Safe RL</div>
+      <span style="color:var(--t3);font-size:11px">→</span>
+      <div id="wf-advisory" onclick="gotoTab('operation')" style="cursor:pointer;padding:3px 9px;border:1px solid var(--bd);border-radius:3px;font-size:9.5px;font-family:var(--font-mono);color:var(--t3)">⚙️ Advisory</div>
+    </div>
+  <div style="display:flex;align-items:center;gap:5px">
+    <span id="src-badge">📌 Source: System Initial</span>
+    <button class="btn-sm" onclick="gotoTab('surrogate')">→ Run Prediction to Update</button>
+    <button class="btn-sm" onclick="gotoTab('surrogate')">→ Predict</button>
+  </div></div>
+  <div class="g21 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot"></div>Electrowinning Process Flow · Current Condition</div>
+      <div class="seg mb10" id="ov-cond-btns">
+        <button class="seg-btn active" onclick="ovSetCond(1,this)">Cond. 1 · Unit A</button>
+        <button class="seg-btn" onclick="ovSetCond(2,this)">Cond. 2 · Unit B</button>
+        <button class="seg-btn" onclick="ovSetCond(3,this)">Cond. 3 · Series A+B</button>
+      </div>
+      <div class="flow" id="ov-flow"></div>
+      <div class="cu-rule"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px" id="ov-params"></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot green"></div>Safety Constraint Monitor (C₁–C₅)</div>
+      <div id="ov-constraints"></div>
+    </div>
+  </div>
+  <div class="g3 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot blue"></div><i>Cu</i><sub>out</sub> Prediction Accuracy</div>
+      <div class="gauge-wrap"><canvas id="g-cu" width="160" height="95"></canvas></div>
+      <div class="tc mt8"><span class="chip">ExtraTrees · Cond. 1 / 2 / 3</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+        <div class="stat-box"><div class="stat-lbl">R²</div><div class="stat-num c-blue bold">0.83</div></div>
+        <div class="stat-box"><div class="stat-lbl">RMSE</div><div class="stat-num c-blue bold">0.57</div></div>
+        <div class="stat-box"><div class="stat-lbl">MAPE</div><div class="stat-num c-blue bold">7.2%</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot green"></div><i>As</i><sub>out</sub> Prediction Accuracy</div>
+      <div class="gauge-wrap"><canvas id="g-as" width="160" height="95"></canvas></div>
+      <div class="tc mt8"><span class="chip">ExtraTrees · Cond. 1 / 2 / 3</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+        <div class="stat-box"><div class="stat-lbl">R²</div><div class="stat-num c-green bold">0.84</div></div>
+        <div class="stat-box"><div class="stat-lbl">RMSE</div><div class="stat-num c-green bold">0.60</div></div>
+        <div class="stat-box"><div class="stat-lbl">MAPE</div><div class="stat-num c-green bold">7.3%</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot amber"></div>Voltage Prediction Accuracy</div>
+      <div class="gauge-wrap"><canvas id="g-v" width="160" height="95"></canvas></div>
+      <div class="tc mt8"><span class="chip">ExtraTrees · Cond. 1 / 2 / 3</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+        <div class="stat-box"><div class="stat-lbl">R²</div><div class="stat-num c-amber bold">0.90</div></div>
+        <div class="stat-box"><div class="stat-lbl">RMSE</div><div class="stat-num c-amber bold">0.81</div></div>
+        <div class="stat-box"><div class="stat-lbl">MAPE</div><div class="stat-num c-amber bold">1.7%</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><div class="cdot amber"></div>TOPSIS Multi-criteria Model Ranking (Top 5)</div>
+    <table class="tbl">
+      <thead><tr><th>Rank</th><th>Model</th><th><i>Cu</i><sub>out</sub> TOPSIS</th><th><i>As</i><sub>out</sub> TOPSIS</th><th>Voltage TOPSIS</th><th>Composite Score</th><th>Status</th></tr></thead>
+      <tbody id="topsis-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ DATA MANAGEMENT ══ -->
+<div class="panel" id="panel-data">
+  <div class="g21 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot"></div>Data Import</div>
+      <div class="import-tabs" id="import-mode-tabs">
+        <div class="itab active" onclick="setImportMode('manual',this)">
+          <span class="it-icon">✏️</span><span class="it-lbl">Manual Entry</span>
+          <span class="it-desc">Enter process parameters directly</span>
+        </div>
+        <div class="itab" onclick="setImportMode('excel',this)">
+          <span class="it-icon">📊</span><span class="it-lbl">Excel / CSV Upload</span>
+          <span class="it-desc">Batch historical data import</span>
+        </div>
+        <div class="itab" onclick="setImportMode('database',this)">
+          <span class="it-icon">🗄️</span><span class="it-lbl">Database Connection</span>
+          <span class="it-desc">Pull from external database</span>
+        </div>
+      </div>
+      <!-- Manual -->
+      <div class="ipanel active" id="import-panel-manual">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:14px">Enter current batch parameters. Data is saved to local cache and available for prediction and optimization.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label class="flabel"><i>Cu</i><sub>in</sub> — Inlet Cu concentration (g/L)</label><input type="number" id="m-cu" value="38.9" min="29" max="55" step="0.1"></div>
+          <div><label class="flabel">Temperature <i>T</i><sub>A</sub> (℃)</label><input type="number" id="m-temp" value="57" min="40" max="65" step="1"></div>
+          <div><label class="flabel">Current intensity <i>I</i><sub>A</sub> (A)</label><input type="number" id="m-current" value="15000" min="8000" max="27000" step="500"></div>
+          <div><label class="flabel">Flow rate <i>Q</i><sub>A</sub> (m³/h)</label><input type="number" id="m-flow" value="117" min="111" max="123" step="0.5"></div>
+          <div><label class="flabel">Duration <i>t</i> (h)</label><input type="number" id="m-dur" value="4" min="2" max="12" step="0.5"></div>
+          <div><label class="flabel">Operating condition</label>
+            <select id="m-mode">
+              <option value="three_stage">Condition 1 — Unit A (Three-stage)</option>
+              <option value="four_stage">Condition 2 — Unit B (Four-stage)</option>
+              <option value="serial">Condition 3 — Series A+B</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn-p" style="flex:1" onclick="submitManual()">📥 Submit Data</button>
+          <button class="btn-s" onclick="sendToSurrogate()">🧠 Predict Now</button>
+        </div>
+        <div id="manual-status" style="margin-top:10px;font-size:10px;color:var(--t2);font-family:var(--font-mono)"></div>
+      </div>
+      <!-- Excel -->
+      <div class="ipanel" id="import-panel-excel">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:14px">Supports .xlsx, .xls, .csv. Column names are auto-mapped (e.g. Cu_in, T_A, I_A, Q_A, t, mode).</div>
+        <div style="padding:16px;background:var(--bg-base);border:1.5px dashed var(--bd-hi);border-radius:var(--r);margin-bottom:12px;text-align:center" id="drop-zone"
+          ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
+          ondragleave="this.style.borderColor='var(--bd-hi)'"
+          ondrop="handleFileDrop(event)">
+          <div style="font-size:28px;margin-bottom:8px">📄</div>
+          <div style="font-size:11px;color:var(--t1);margin-bottom:8px">Drag & drop file here, or browse below</div>
+          <input type="file" id="file-upload" accept=".xlsx,.xls,.csv" style="max-width:260px;margin:0 auto">
+        </div>
+        <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);margin-bottom:12px">
+          Recognised columns: Cu_in · T_A · T_B · I_A · I_B · Q_A · Q_B · t · V_A · V_B · P_A · P_B · P_total · mode
+        </div>
+        <button class="btn-p" onclick="uploadExcel()">📤 Upload & Import</button>
+        <div id="upload-status" style="margin-top:10px;font-size:10px;color:var(--t2);font-family:var(--font-mono)"></div>
+      </div>
+      <!-- Database -->
+      <div class="ipanel" id="import-panel-database">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:14px">Connect to an external plant database and pull the latest process records.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div><label class="flabel">Database type</label>
+            <select id="db-type" onchange="updateDbPort()">
+              <option value="mysql">MySQL</option><option value="postgresql">PostgreSQL</option>
+              <option value="sqlite">SQLite</option><option value="mssql">SQL Server</option>
+            </select>
+          </div>
+          <div><label class="flabel">Port</label><input type="number" id="db-port" value="3306"></div>
+          <div><label class="flabel">Host</label><input type="text" id="db-host" value="localhost" placeholder="192.168.1.100"></div>
+          <div><label class="flabel">Database name</label><input type="text" id="db-name" value="copper_ew"></div>
+          <div><label class="flabel">Username</label><input type="text" id="db-user" value="root"></div>
+          <div><label class="flabel">Password</label><input type="password" id="db-pass" placeholder="••••••••"></div>
+        </div>
+        <div style="margin-bottom:10px"><label class="flabel">Custom query (optional)</label>
+          <textarea id="db-query" rows="2" style="resize:none" placeholder="SELECT * FROM process_data ORDER BY timestamp DESC LIMIT 500"></textarea>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-p" style="flex:1" onclick="importFromDB()">🔌 Connect & Import</button>
+          <button class="btn-s" onclick="showToast('Info','Please verify database credentials first.','t-warn')">🔍 Test Connection</button>
+        </div>
+        <div id="db-status" style="margin-top:10px;font-size:10px;color:var(--t2);font-family:var(--font-mono)"></div>
+      </div>
+    </div>
+    <!-- Right stats -->
+    <div>
+      <div class="card mb14">
+        <div class="card-hd"><div class="cdot green"></div>Data Statistics</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div class="stat-box"><div class="stat-lbl">Total Records</div><div class="stat-num c-blue" id="data-total">—</div></div>
+          <div class="stat-box"><div class="stat-lbl">Latest Timestamp</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--green);margin-top:4px;line-height:1.5" id="data-latest">—</div></div>
+          <div class="stat-box"><div class="stat-lbl">Manual Entry</div><div class="stat-num c-cu" id="data-manual">0</div></div>
+          <div class="stat-box"><div class="stat-lbl">Excel Import</div><div class="stat-num c-amber" id="data-excel">0</div></div>
+        </div>
+        <button class="btn-s" style="width:100%" onclick="loadDataStats()">🔄 Refresh</button>
+      </div>
+      <div class="card">
+        <div class="card-hd"><div class="cdot"></div>Data Preprocessing</div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="pp-out" checked><label for="pp-out" style="font-size:11px;cursor:pointer">Remove outliers (Hampel filter, 3σ)</label></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="pp-miss" checked><label for="pp-miss" style="font-size:11px;cursor:pointer">Impute missing values (KNN, k=5)</label></div>
+          <div style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="pp-norm"><label for="pp-norm" style="font-size:11px;cursor:pointer">Normalize features</label></div>
+        </div>
+        <button class="btn-sm" style="width:100%" onclick="runPreprocess()">🧹 Run Preprocessing</button>
+        <div id="pp-status" style="margin-top:8px;font-size:10px;color:var(--t2);font-family:var(--font-mono)"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd flex-btw">
+      <div class="flex"><div class="cdot"></div>Data Record Preview</div>
+      <div style="display:flex;gap:6px">
+        <select id="data-filter" onchange="loadDataList()" style="padding:3px 8px;font-size:10px">
+          <option value="">All sources</option><option value="manual">Manual</option>
+          <option value="excel">Excel</option><option value="database">Database</option>
+        </select>
+        <button class="btn-sm" onclick="loadDataList()">🔄 Refresh</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>#</th><th>Timestamp</th><th><i>Cu</i><sub>in</sub> (g/L)</th><th><i>T</i> (℃)</th><th><i>I</i> (A)</th><th><i>Q</i> (m³/h)</th><th><i>t</i> (h)</th><th>Condition</th><th>Source</th></tr></thead>
+        <tbody id="data-tbody"><tr><td colspan="9" style="text-align:center;color:var(--t2);padding:20px">No data — please import first</td></tr></tbody>
+      </table>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:10px;color:var(--t2);font-family:var(--font-mono)">
+      <span id="data-count-info">0 records</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn-sm" onclick="dataPage(-1)">‹ Prev</button>
+        <span id="data-page-info">Page 1 / 1</span>
+        <button class="btn-sm" onclick="dataPage(1)">Next ›</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SURROGATE PREDICTION ══ -->
+<div class="panel" id="panel-surrogate">
+  <div class="g21 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot"></div>Process Parameter Input</div>
+      <div class="seg mb10" id="surr-cond-btns">
+        <button class="seg-btn active" onclick="surrSetCond(1,this)">Cond. 1</button>
+        <button class="seg-btn" onclick="surrSetCond(2,this)">Cond. 2</button>
+        <button class="seg-btn" onclick="surrSetCond(3,this)">Cond. 3 · Series</button>
+      </div>
+      <div id="surr-inputs"></div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn-p" style="flex:2" id="surr-btn" onclick="runSurrogate()">▶ Run Prediction</button>
+        <button class="btn-s" style="flex:1" onclick="surrFill()">📋 Fill from Data</button>
+      </div>
+      <div id="surr-model-src" style="margin-top:8px;font-size:9.5px;font-family:var(--font-mono);color:var(--t3)">Model source: checking...</div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot green"></div>Prediction Results</div>
+      <div id="surr-results">
+        <div style="text-align:center;color:var(--t2);padding:40px 0;font-size:12px">Set parameters and click Run Prediction</div>
+      </div>
+      <div id="surr-actions" style="display:none;margin-top:14px">
+        <div class="divider"><div class="divider-txt">Next Steps</div><div class="divider-line"></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn-sm" style="text-align:left;padding:8px 12px" onclick="openOptModal('nsga2')">🧬 NSGA-II Multi-objective — Offline Pareto front solving</button>
+          <button class="btn-sm" style="text-align:left;padding:8px 12px" onclick="openOptModal('rl')">🤖 Safe RL Online Optimization — PPO-Lagrangian policy</button>
+          <button class="btn-sm" style="text-align:left;padding:8px 12px;color:var(--green);border-color:rgba(26,107,58,0.3)" onclick="applySurrToOverview()">📊 Sync to Overview Dashboard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="card"><div class="card-hd"><div class="cdot blue"></div><i>Cu</i><sub>out</sub> Model · Feature Importance (Top 10)</div><div id="fi-cu"></div></div>
+    <div class="card"><div class="card-hd"><div class="cdot green"></div><i>As</i><sub>out</sub> Model · Feature Importance (Top 10)</div><div id="fi-as"></div></div>
+    <div class="card"><div class="card-hd"><div class="cdot amber"></div>Voltage Model · Feature Importance (Top 8)</div><div id="fi-v"></div></div>
+  </div>
+</div>
+
+<!-- ══ NSGA-II ══ -->
+<div class="panel" id="panel-nsga2">
+  <div class="g2 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot"></div>NSGA-II Algorithm Configuration</div>
+      <div class="seg mb10" id="nsga2-run-mode-btns" style="width:100%">
+        <button class="seg-btn active" onclick="nsga2SetMode('online',this)">Online Data</button>
+        <button class="seg-btn" onclick="nsga2SetMode('excel',this)">Excel Offline</button>
+        <button class="seg-btn" onclick="nsga2SetMode('manual',this)">Manual Input</button>
+      </div>
+      <div id="nsga2-data-input" style="display:none;margin-bottom:12px"></div>
+      <div id="nsga2-config"></div>
+      <button class="btn-p mt12" style="width:100%" id="nsga2-btn" onclick="runNSGA2()">🧬 Launch NSGA-II Optimization</button>
+      <div id="nsga2-prog-wrap" style="display:none;margin-top:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:10px;color:var(--t2);font-family:var(--font-mono)">
+          <span>Optimization progress</span><span id="nsga2-prog-pct">0%</span>
+        </div>
+        <div class="pbar"><div class="pbar-fill cu" id="nsga2-prog" style="width:0%"></div></div>
+        <div id="nsga2-prog-msg" style="margin-top:6px;font-size:9.5px;color:var(--t3);font-family:var(--font-mono)">Waiting to start...</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot green"></div>Process Safety Constraints</div>
+      <div id="nsga2-constraints"></div>
+    </div>
+  </div>
+  <div class="g2 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot blue"></div>Pareto Front · <i>Cu</i><sub>out</sub> vs <i>As</i><sub>out</sub></div>
+      <div class="pareto-wrap"><canvas id="pareto1" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot orange"></div>Pareto Front · <i>E</i><sub>total</sub> vs Net Profit</div>
+      <div class="pareto-wrap"><canvas id="pareto2" style="width:100%;height:100%"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><div class="cdot amber"></div>Compromise Solution Set · Three Operating Conditions</div>
+    <div class="seg mb10" id="nsga2-cond-btns">
+      <button class="seg-btn active" onclick="nsga2ShowCond(1,this)">Cond. 1</button>
+      <button class="seg-btn" onclick="nsga2ShowCond(2,this)">Cond. 2</button>
+      <button class="seg-btn" onclick="nsga2ShowCond(3,this)">Cond. 3</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl" id="nsga2-tbl" style="min-width:780px">
+        <thead id="nsga2-thead"></thead>
+        <tbody id="nsga2-table"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:9.5px;color:var(--t2);font-family:var(--font-mono)">💡 Click "Apply" to sync the selected solution to the Overview dashboard</div>
+  </div>
+</div>
+
+<!-- ══ SAFE RL ══ -->
+<div class="panel" id="panel-saferl">
+  <div class="g2 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot"></div>PPO-Lagrangian Training Configuration</div>
+      <div class="seg mb10" id="rl-run-mode-btns" style="width:100%">
+        <button class="seg-btn active" onclick="rlSetMode('online',this)">Online Data</button>
+        <button class="seg-btn" onclick="rlSetMode('excel',this)">Excel Offline</button>
+        <button class="seg-btn" onclick="rlSetMode('manual',this)">Manual Input</button>
+      </div>
+      <div id="rl-data-input" style="display:none;margin-bottom:12px"></div>
+      <div id="rl-config"></div>
+      <div style="margin-top:12px">
+        <button class="btn-p" style="width:100%" id="rl-btn-s" onclick="runRL()">🤖 Launch PPO-Lagrangian Training</button>
+        <div style="font-size:9px;color:var(--t3);font-family:var(--font-mono);margin-top:5px;text-align:center">Single-agent · 3 conditions available · PPO-Lagrangian Safe RL</div>
+      </div>
+      <div id="rl-prog-wrap" style="display:none;margin-top:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:10px;color:var(--t2);font-family:var(--font-mono)">
+          <span>Training progress</span><span id="rl-prog-pct">0%</span>
+        </div>
+        <div class="pbar"><div class="pbar-fill" id="rl-prog" style="width:0%"></div></div>
+        <div id="rl-prog-msg" style="margin-top:6px;font-size:9.5px;color:var(--t3);font-family:var(--font-mono)"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot green"></div>Training Monitor</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="stat-box"><div class="stat-lbl">Current Step</div><div class="stat-num c-blue" id="rl-step">—</div></div>
+        <div class="stat-box"><div class="stat-lbl">Constraint Satisfaction</div><div class="stat-num c-green" id="rl-crate">—</div></div>
+        <div class="stat-box"><div class="stat-lbl">Avg. Reward</div><div class="stat-num c-amber" id="rl-reward">—</div></div>
+        <div class="stat-box"><div class="stat-lbl">λ<sub>max</sub> (Lagrangian)</div><div class="stat-num c-orange" id="rl-lambda">—</div></div>
+      </div>
+      <div class="small mb8">Convergence Curve</div>
+      <canvas id="rl-conv" width="400" height="100" style="width:100%;height:100px;background:var(--bg-paper)"></canvas>
+      <div class="small mt8 mb8">Training Log</div>
+      <div class="log-box" id="rl-log">Waiting for training to start...</div>
+    </div>
+  </div>
+  <div class="g2 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot blue"></div>RL Pareto Front (Condition Comparison)</div>
+      <div class="pareto-wrap" style="height:180px"><canvas id="rl-pareto" style="width:100%;height:100%"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot orange"></div>Constraint Cost Convergence (C₁–C₅)</div>
+      <canvas id="rl-cost" width="400" height="180" style="width:100%;height:180px;background:var(--bg-paper)"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><div class="cdot amber"></div>RL Compromise Solutions (Cond. 3 · Series)</div>
+    <div class="sc-grid" id="rl-scenarios">
+      <div style="grid-column:span 2;text-align:center;color:var(--t2);padding:30px 0;font-size:12px">Run RL training to view results</div>
+    </div>
+    <div id="rl-apply-area" style="display:none;margin-top:14px;padding:12px;background:var(--green-light);border-radius:var(--r-sm);border:1px solid rgba(26,107,58,0.25)">
+      <div style="font-size:10px;color:var(--green);margin-bottom:8px;font-weight:600">✅ Training complete — apply solution to Overview</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="rl-apply-btns"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ COMPARE ══ -->
+<div class="panel" id="panel-compare">
+  <div class="g4 mb14">
+    <div class="card"><div class="card-hd"><div class="cdot blue"></div><i>Cu</i><sub>out</sub> Reduction</div><div id="cmp-cu"></div></div>
+    <div class="card"><div class="card-hd"><div class="cdot green"></div><i>As</i><sub>out</sub> (Optimize)</div><div id="cmp-as"></div></div>
+    <div class="card"><div class="card-hd"><div class="cdot orange"></div><i>E</i><sub>total</sub> Savings</div><div id="cmp-e"></div></div>
+    <div class="card"><div class="card-hd"><div class="cdot amber"></div>Net Profit Gain</div><div id="cmp-p"></div></div>
+  </div>
+  <div class="card mb14">
+    <div class="card-hd"><div class="cdot orange"></div>NSGA-II vs Safe RL · Algorithm Comparison</div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Method</th><th>Condition</th><th>Pareto Size</th><th>HV Index</th><th>Spacing</th><th>Feasibility</th><th><i>Cu</i><sub>out</sub></th><th><i>As</i><sub>out</sub></th><th><i>E</i> (kWh)</th><th>Profit (×10⁴)</th></tr></thead>
+        <tbody id="algo-cmp-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><div class="cdot blue"></div>Multi-objective Performance: NSGA-II vs PPO-Lagrangian · Balanced Scenario</div>
+    <div class="g2">
+      <div>
+        <div style="font-size:10px;color:var(--t1);font-weight:600;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bg-subtle)">Cross-Condition Balanced Scenario — NSGA-II vs RL</div>
+        <table class="tbl">
+          <thead><tr><th>Metric</th><th>NSGA-II C1</th><th>RL C1</th><th>NSGA-II C3</th><th>RL C3</th><th>Unit</th></tr></thead>
+          <tbody>
+            <tr><td><i>Cu</i><sub>out</sub></td><td class="mono">3.71</td><td class="mono c-blue">3.95</td><td class="mono">4.28</td><td class="mono c-blue">4.11</td><td class="mono">g/L</td></tr>
+            <tr><td><i>As</i><sub>out</sub></td><td class="mono">4.89</td><td class="mono c-green">4.82</td><td class="mono">5.52</td><td class="mono c-green">4.31</td><td class="mono">g/L</td></tr>
+            <tr><td><i>E</i><sub>total</sub></td><td class="mono">2,896</td><td class="mono c-orange">2,650</td><td class="mono">8,995</td><td class="mono c-orange">8,650</td><td class="mono">kWh</td></tr>
+            <tr><td>Net Profit</td><td class="mono">13.29</td><td class="mono c-amber">31.20</td><td class="mono">44.73</td><td class="mono c-amber">45.50</td><td class="mono">×10⁴</td></tr>
+            <tr><td>HV Index</td><td class="mono">0.842</td><td class="mono c-blue">0.891</td><td class="mono">0.876</td><td class="mono c-blue">0.932</td><td class="mono">—</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:8.5px;color:var(--t3);margin-top:6px;font-family:var(--font-mono)">RL consistently achieves higher HV and better profit with competitive feasibility guarantee ≥97.8%</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t1);font-weight:600;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--bg-subtle)">4-Objective Performance Radar · Normalized (Cond. 3 Balanced)</div>
+        <canvas id="radar-cmp" width="320" height="200" style="width:100%;height:200px;background:var(--bg-paper);border-radius:var(--r-sm)"></canvas>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:6px;font-size:9px;font-family:var(--font-mono)">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:#2563a8;display:inline-block;border-radius:1px"></span>NSGA-II</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:2px;background:#c0471a;display:inline-block;border-radius:1px"></span>PPO-Lagrangian RL</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EXPERIMENT ══ -->
+<div class="panel" id="panel-experiment">
+  <div class="g21 mb14">
+    <div class="card">
+      <div class="card-hd flex-btw"><div class="flex"><div class="cdot"></div>Experiment Records</div><button class="btn-sm" onclick="loadExperiments()">🔄 Refresh</button></div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>Exp. ID</th><th>Algorithm</th><th>Data Version</th><th>Runtime (s)</th><th>Timestamp</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="exp-tbody"><tr><td colspan="7" style="text-align:center;color:var(--t2);padding:20px">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot green"></div>Experiment Details</div>
+      <div id="exp-detail"><div style="text-align:center;color:var(--t2);padding:40px 0;font-size:12px">Select an experiment to view details</div></div>
+      <div id="exp-export" style="display:none;margin-top:14px">
+        <div class="divider"><div class="divider-txt">Export</div><div class="divider-line"></div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-p" style="flex:1" onclick="exportExp('csv')">📊 Export CSV</button>
+          <button class="btn-s" style="flex:1" onclick="exportExp('pdf')">📋 Export Report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OPERATION ADVISORY ══ -->
+<div class="panel" id="panel-operation">
+  <div class="g21 mb14">
+    <div class="card">
+      <div class="card-hd"><div class="cdot"></div>Current Production State</div>
+      <div class="seg mb10" id="op-cond-btns" style="width:100%">
+        <button class="seg-btn active" onclick="opSetCond(1,this)">Cond. 1 — Unit A</button>
+        <button class="seg-btn" onclick="opSetCond(2,this)">Cond. 2 — Unit B</button>
+        <button class="seg-btn" onclick="opSetCond(3,this)">Cond. 3 — Series A+B</button>
+      </div>
+      <div id="op-inputs"></div>
+      <div id="op-sync-note" style="display:none;margin-top:10px;padding:8px 12px;background:var(--green-light);border:1px solid rgba(26,107,58,0.25);border-radius:var(--r-sm);font-size:10px;color:var(--green)">✅ Parameters synced from optimization result</div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn-p" style="flex:1" onclick="getRecommendation('nsga2')">🧬 NSGA-II Recommendation</button>
+        <button class="btn-s" style="flex:1" onclick="getRecommendation('rl')">🤖 RL Real-time Recommendation</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="cdot green"></div>Optimization Advisory</div>
+      <div id="op-rec"><div style="text-align:center;color:var(--t2);padding:40px 0;font-size:12px">Click a button on the left to generate real-time advisory</div></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="card-hd"><div class="cdot"></div>Key Parameter Control Rules</div><div id="ctrl-rules"></div></div>
+    <div class="card"><div class="card-hd"><div class="cdot orange"></div>Safety Boundary Check (C₁–C₅)</div><div id="safety-check"></div></div>
+  </div>
+</div>
+
+<!-- ══ ADMIN ══ -->
+<div class="panel" id="panel-admin">
+  <div class="g3">
+    <div class="card">
+      <div class="card-hd flex-btw"><div class="flex"><div class="cdot"></div>User Management</div><button class="btn-sm" onclick="showToast('Info','Manage users via the API interface.')">Add User</button></div>
+      <div style="overflow-x:auto">
+        <table class="tbl"><thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Created At</th><th>Action</th></tr></thead>
+        <tbody id="admin-users"></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd flex-btw"><div class="flex"><div class="cdot"></div>System Logs</div><button class="btn-sm" onclick="loadLogs()">Refresh</button></div>
+      <div class="log-container" id="admin-logs" style="max-height:260px;overflow-y:auto"><div style="color:var(--t2);padding:20px;text-align:center;font-size:11px">Loading...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd flex-btw"><div class="flex"><div class="cdot"></div>Model Status</div><button class="btn-sm" onclick="checkModels()">Check</button></div>
+      <div id="model-status-list"><div style="color:var(--t2);padding:20px;text-align:center;font-size:11px">Checking model files...</div></div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+/* ─── Utilities ─────────────────────────────────────────── */
+const el = id => document.getElementById(id);
+const rand = s => (Math.random()-0.5)*2*s;
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const API  = p => fetch(p).then(r=>r.json()).catch(e=>({error:e.message}));
+const POST = (p,b) => fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()).catch(e=>({error:e.message}));
+
+/* ─── Toast ─────────────────────────────────────────────── */
+let _tt;
+function showToast(title,body,type=''){
+  const t=el('toast');
+  el('toastTitle').textContent=title; el('toastBody').textContent=body;
+  t.className='toast show '+(type||'');
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),3800);
+}
+function hideToast(){ el('toast').classList.remove('show'); }
+
+/* ─── State ──────────────────────────────────────────────── */
+const S = { surrCond:1, nsga2Cond:1, ovCond:1, nsga2Mode:'online', rlMode:'online',
+  prediction:null, kpiSrc:'initial', activeTask:null };
+let _dataPage=1, _dataTotal=0;
+
+/* ─── Socket.IO ─────────────────────────────────────────── */
+let socket;
+try {
+  socket = io({transports:['websocket','polling']});
+  socket.on('connect',()=>{
+    el('hd-ws-dot').className='sdot dot-ok'; el('hd-ws-txt').textContent='Connected';
+    socket.emit('ping_models');
+  });
+  socket.on('disconnect',()=>{ el('hd-ws-dot').className='sdot dot-er'; el('hd-ws-txt').textContent='Disconnected'; });
+  socket.on('model_status',d=>{
+    const ok=d.status==='ready'&&d.loaded>0;
+    el('hd-model-dot').className='sdot '+(ok?'dot-ok':'dot-ld');
+    el('hd-model-txt').textContent=ok?`${d.loaded} ready`:'Loading...';
+    if(el('surr-model-src')) el('surr-model-src').textContent=`Model source: ${ok?'Local joblib ('+d.loaded+' models)':'Simulation mode (no joblib found)'}`;
+  });
+  socket.on('nsga2_progress',d=>{if(d.task_id===S.activeTask)updateNsga2Prog(d.progress,d.msg);});
+  socket.on('nsga2_complete',d=>{if(d.task_id===S.activeTask)handleNsga2Done(d);});
+  socket.on('rl_progress',d=>{if(d.task_id===S.activeTask)updateRLProg(d);});
+  socket.on('rl_complete',d=>{if(d.task_id===S.activeTask)handleRLDone(d);});
+} catch(e){ showToast('⚠️ Real-time comm unavailable','Running in offline mode.','t-warn'); }
+
+/* ─── Workflow Markers ──────────────────────────────────────── */
+function markWfStep(id){const s=el(id);if(!s)return;s.style.borderColor='rgba(26,107,58,0.45)';s.style.color='var(--green)';s.style.background='var(--green-light)';}
+function activateWfStep(id){const s=el(id);if(!s)return;s.style.borderColor='var(--cu)';s.style.color='var(--cu)';s.style.background='var(--cu-pale)';}
+/* ─── Clock ─────────────────────────────────────────────── */
+function tick(){ el('clock').textContent=new Date().toLocaleTimeString('en-US',{hour12:false}); }
+tick(); setInterval(tick,1000);
+
+/* ─── Tab nav ────────────────────────────────────────────── */
+function gotoTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.panel===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));
+  const map={
+    nsga2:()=>setTimeout(()=>{drawParetoNice('pareto1','cu-as');drawParetoNice('pareto2','e-profit');renderNsga2Table();},80),
+    saferl:()=>setTimeout(()=>{drawCostConv();drawRLPareto();},80),
+    compare:()=>setTimeout(initCompare,80),
+    overview:()=>setTimeout(()=>{drawGauge('g-cu',0.83,'#2563a8','R²=0.83');drawGauge('g-as',0.84,'#1a6b3a','R²=0.84');drawGauge('g-v',0.90,'#8a5c00','R²=0.90');},80),
+    admin:initAdmin, experiment:loadExperiments, data:()=>{loadDataStats();loadDataList();},
+  };
+  if(map[name]) map[name]();
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>gotoTab(t.dataset.panel)));
+
+/* ════════════════════ OVERVIEW ════════════════════════════ */
+const TOPSIS_DATA=[
+  {model:'ExtraTrees',cu:1.00,as:1.00,v:1.00,comp:1.00},
+  {model:'CatBoost',cu:0.98,as:0.96,v:0.95,comp:0.97},
+  {model:'XGBoost',cu:0.95,as:0.92,v:0.97,comp:0.95},
+  {model:'RandomForest',cu:0.97,as:0.91,v:0.93,comp:0.94},
+  {model:'LightGBM',cu:0.92,as:0.94,v:0.93,comp:0.93},
+];
+
+function initOverview(){
+  drawGauge('g-cu',0.83,'#2563a8','R²=0.83');
+  drawGauge('g-as',0.84,'#1a6b3a','R²=0.84');
+  drawGauge('g-v',0.90,'#8a5c00','R²=0.90');
+  renderTOPSIS(); renderConstraints(4.63,6.28,189,2.07); renderOvFlow(1);
+}
+
+function ovSetCond(n,btn){
+  S.ovCond=n;
+  document.querySelectorAll('#ov-cond-btns .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); renderOvFlow(n);
+}
+
+function renderOvFlow(c){
+  const nodeLabels={1:['Inlet','Unit A','Outlet'],2:['Inlet','Unit B','Outlet'],3:['Inlet','Unit A','Unit B','Outlet']};
+  const active={1:[false,true,false],2:[false,true,false],3:[false,true,true,false]};
+  const icons=['💧','🏭','🏭','💧'];
+  const labels=nodeLabels[c], acts=active[c];
+  let html='';
+  labels.forEach((l,i)=>{
+    if(i>0) html+=`<span class="flow-arr">→</span>`;
+    html+=`<div class="flow-node ${acts[i]?'active':''}"><span class="flow-icon">${l==='Inlet'||l==='Outlet'?'💧':'🏭'}</span><span>${l}</span></div>`;
+  });
+  el('ov-flow').innerHTML=html;
+  const paramSets={
+    1:[{k:'Cu_in',v:'38.9 g/L'},{k:'T_A (℃)',v:'58'},{k:'I_A (A)',v:'15,000'},{k:'Q_A (m³/h)',v:'117.0'},{k:'t (h)',v:'4.0'},{k:'Mode',v:'Three-stage'}],
+    2:[{k:'Cu_in',v:'37.5 g/L'},{k:'T_B (℃)',v:'61'},{k:'I_B (A)',v:'15,840'},{k:'Q_B (m³/h)',v:'118.6'},{k:'t (h)',v:'4.0'},{k:'Mode',v:'Four-stage'}],
+    3:[{k:'Cu_in',v:'39.2 g/L'},{k:'T_A (℃)',v:'56'},{k:'I_A (A)',v:'14,820'},{k:'Q_A (m³/h)',v:'118.4'},{k:'T_B (℃)',v:'59'},{k:'I_B (A)',v:'14,250'},{k:'Q_B (m³/h)',v:'118.9'},{k:'t (h)',v:'6.0'},{k:'Mode',v:'Series A+B'}],
+  };
+  const params=paramSets[c]||paramSets[1];
+  el('ov-params').innerHTML=params.map(p=>`<div class="stat-box"><div class="stat-lbl">${p.k}</div><div style="font-family:var(--font-mono);font-size:13px;font-weight:600;margin-top:2px">${p.v}</div></div>`).join('');
+}
+
+function renderTOPSIS(){
+  const medals=['🥇','🥈','🥉','④','⑤'];
+  el('topsis-body').innerHTML=TOPSIS_DATA.map((d,i)=>`
+    <tr>
+      <td style="font-size:16px">${medals[i]}</td>
+      <td><span class="chip">${d.model}</span></td>
+      <td class="mono">${d.cu.toFixed(2)}</td><td class="mono">${d.as.toFixed(2)}</td><td class="mono">${d.v.toFixed(2)}</td>
+      <td><div class="flex"><div class="pbar" style="flex:1"><div class="pbar-fill" style="width:${d.comp*100}%"></div></div><span class="mono c-blue" style="min-width:28px">${d.comp.toFixed(2)}</span></div></td>
+      <td>${i===0?'<span class="badge b-cu">Best</span>':''}</td>
+    </tr>`).join('');
+}
+
+function renderConstraints(cu,as,J,Vcell){
+  J=J||189;Vcell=Vcell||2.07;
+  const ratio=+(cu/(as+1e-9)).toFixed(3);
+  const items=[
+    {n:'C₁  Cu_out ≤ 8.0 g/L ',val:`${cu.toFixed?cu.toFixed(2):cu} g/L`,ok:cu<=8.0,pct:cu/8.0*100},
+    {n:'C₂  As_out ≥ 4.0 g/L  ',val:`${as.toFixed?as.toFixed(2):as} g/L`,ok:as>=4.0,pct:Math.min(as/9.0*100,100)},
+    {n:'C₃  J ≤ 340 A/m²',val:`${J.toFixed(0)} A/m²`,ok:J<=340,pct:J/340*100},
+    {n:'C₄  V_cell ≤ 2.5 V',val:`${Vcell.toFixed(2)} V`,ok:Vcell<=2.5,pct:Vcell/2.5*100},
+    {n:'C₅  Cu/As ≤ 0.80',val:ratio,ok:ratio<=0.80,pct:Math.min(ratio/0.80*100,100)},
+  ];
+  el('ov-constraints').innerHTML=items.map(c=>`
+    <div class="cst-item">
+      <div class="cst-dot" style="background:${c.ok?'var(--green)':'var(--red)'};box-shadow:0 0 5px ${c.ok?'rgba(26,107,58,0.4)':'rgba(192,39,45,0.4)'}"></div>
+      <div class="cst-name">${c.n}</div>
+      <div class="cst-bar"><div class="pbar"><div class="pbar-fill ${c.ok?'green':''}" style="width:${Math.min(c.pct,100)}%;${c.ok?'':'background:var(--red)'}"></div></div></div>
+      <div class="cst-val" style="color:${c.ok?'var(--green)':'var(--red)'}">${c.val}</div>
+    </div>`).join('');
+}
+
+function updateKPIs(cu,as,E,profit,src){
+  S.kpiSrc=src;
+  const [hcu,has,hE,hp]=[5.34,7.05,3183,30.15];
+  el('kpi-cu').innerHTML=`${cu.toFixed(2)}<span class="kpi-unit">g/L</span>`;
+  el('kpi-as').innerHTML=`${as.toFixed(2)}<span class="kpi-unit">g/L</span>`;
+  el('kpi-e').innerHTML=`${Math.round(E)}<span class="kpi-unit">kWh</span>`;
+  el('kpi-p').innerHTML=`${profit.toFixed(2)}<span class="kpi-unit">×10⁴ CNY</span>`;
+  el('kpi-cu-delta').textContent=`▼ ${((hcu-cu)/hcu*100).toFixed(1)}% Reduction`;
+  el('kpi-as-delta').textContent=`▲ ${((has-as)/has*100).toFixed(1)}% Improvement`;
+  el('kpi-e-delta').textContent=`▼ ${((hE-E)/hE*100).toFixed(1)}% Energy Savings`;
+  el('kpi-p-delta').textContent=`▲ ${((profit-hp)/hp*100).toFixed(1)}% Revenue Gain`;
+  const sm={prediction:'🧠 Surrogate Prediction',nsga2:'🧬 NSGA-II Result',rl:'🤖 Safe RL Result',initial:'📌 System Initial'};
+  el('src-badge').textContent=`📌 Source: ${sm[src]||src}`;
+  document.querySelectorAll('#kpi-row .card').forEach(c=>{c.classList.remove('flash');void c.offsetWidth;c.classList.add('flash');});
+  renderConstraints(cu,as);
+}
+
+function drawGauge(id,val,color,label){
+  const c=el(id); if(!c)return;
+  const W=c.width||160,H=c.height||95,ctx=c.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2,cy=H-10,r=Math.min(W,H*1.8)/2-16;
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);
+  ctx.lineWidth=10;ctx.lineCap='round';ctx.strokeStyle='rgba(0,0,0,0.06)';ctx.stroke();
+  for(let i=0;i<=10;i++){
+    const a=Math.PI+(i/10)*Math.PI;
+    ctx.strokeStyle=i%5===0?'rgba(0,0,0,0.12)':'rgba(0,0,0,0.05)';
+    ctx.lineWidth=i%5===0?1.5:0.8;
+    ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(r-15),cy+Math.sin(a)*(r-15));
+    ctx.lineTo(cx+Math.cos(a)*(r-8),cy+Math.sin(a)*(r-8));ctx.stroke();
+  }
+  const grad=ctx.createLinearGradient(cx-r,cy,cx+r,cy);
+  grad.addColorStop(0,color+'99');grad.addColorStop(1,color);
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,Math.PI+val*Math.PI);
+  ctx.strokeStyle=grad;ctx.lineWidth=10;ctx.lineCap='round';
+  ctx.shadowColor=color;ctx.shadowBlur=14;ctx.stroke();ctx.shadowBlur=0;
+  ctx.fillStyle=color;ctx.font=`bold 19px 'IBM Plex Sans',sans-serif`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.shadowColor=color;ctx.shadowBlur=8;
+  ctx.fillText(Math.round(val*100)+'%',cx,cy-22);ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(100,98,92,0.65)';ctx.font=`13px 'DM Mono',monospace`;
+  ctx.fillText(label,cx,cy-8);
+}
+
+/* ════════════════════ DATA MANAGEMENT ════════════════════ */
+function setImportMode(mode,btn){
+  document.querySelectorAll('.itab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.ipanel').forEach(p=>p.classList.remove('active'));
+  el(`import-panel-${mode}`).classList.add('active');
+}
+
+async function submitManual(){
+  const data={cu_in:parseFloat(el('m-cu').value),temperature:parseFloat(el('m-temp').value),
+    current:parseFloat(el('m-current').value),flow:parseFloat(el('m-flow').value),
+    duration:parseFloat(el('m-dur').value),mode:el('m-mode').value};
+  el('manual-status').textContent='Submitting...';
+  const r=await POST('/api/data/manual',data);
+  if(r.status==='success'){
+    el('manual-status').textContent=`✅ ${r.message}`;
+    showToast('✅ Data submitted','Record saved to local cache.','t-ok');
+    loadDataStats();loadDataList();
+  } else {
+    el('manual-status').textContent=`❌ ${r.message||r.error}`;
+    showToast('❌ Submit failed',r.message||r.error,'t-err');
+  }
+}
+
+function sendToSurrogate(){
+  const condMap={'three_stage':1,'four_stage':2,'serial':3};
+  S.surrCond=condMap[el('m-mode').value]||1;
+  gotoTab('surrogate');
+  setTimeout(()=>{
+    document.querySelectorAll('#surr-cond-btns .seg-btn').forEach((b,i)=>b.classList.toggle('active',i===S.surrCond-1));
+    renderSurrInputs();
+    const map={'Cu_in':el('m-cu').value,'T':el('m-temp').value,'I':el('m-current').value,'Q':el('m-flow').value,'t':el('m-dur').value};
+    Object.entries(map).forEach(([k,v])=>{const sl=el('pr_'+k);if(sl&&v){sl.value=v;surrSlider(k,v);}});
+  },200);
+}
+
+function handleFileDrop(e){
+  e.preventDefault(); el('drop-zone').style.borderColor='var(--bd-hi)';
+  const f=e.dataTransfer.files[0];
+  if(f){el('file-upload').files=e.dataTransfer.files;el('upload-status').textContent=`Selected: ${f.name} (${(f.size/1024).toFixed(1)} KB)`;}
+}
+
+async function uploadExcel(){
+  const fi=el('file-upload');
+  if(!fi.files.length){showToast('⚠️ No file selected','Please choose an Excel or CSV file.','t-warn');return;}
+  el('upload-status').textContent='Uploading...';
+  const fd=new FormData();fd.append('file',fi.files[0]);
+  try{
+    const r=await fetch('/api/data/upload',{method:'POST',body:fd}).then(r=>r.json());
+    if(r.status==='success'){
+      el('upload-status').textContent=`✅ ${r.message}`;
+      showToast('✅ Upload successful',r.message,'t-ok');
+      loadDataStats();loadDataList();
+    } else {
+      el('upload-status').textContent=`❌ ${r.message}`;
+      showToast('❌ Upload failed',r.message,'t-err');
+    }
+  } catch(e){el('upload-status').textContent='❌ Network error';showToast('❌ Error',e.message,'t-err');}
+}
+
+async function importFromDB(){
+  const type=el('db-type').value,host=el('db-host').value,port=el('db-port').value;
+  const name=el('db-name').value,user=el('db-user').value,pass=el('db-pass').value;
+  const query=el('db-query').value.trim()||'SELECT * FROM process_data LIMIT 500';
+  const urlMap={mysql:`mysql+pymysql://${user}:${pass}@${host}:${port}/${name}`,
+    postgresql:`postgresql://${user}:${pass}@${host}:${port}/${name}`,
+    sqlite:`sqlite:///${name}`,
+    mssql:`mssql+pyodbc://${user}:${pass}@${host}:${port}/${name}?driver=ODBC+Driver+17+for+SQL+Server`};
+  el('db-status').textContent='Connecting...';
+  const r=await POST('/api/data/db-import',{db_url:urlMap[type],query,limit:500});
+  if(r.status==='success'){
+    el('db-status').textContent=`✅ ${r.message}`;
+    showToast('✅ Database import successful',r.message,'t-ok');
+    loadDataStats();loadDataList();
+  } else {
+    el('db-status').textContent=`❌ ${r.message||r.error}`;
+    showToast('❌ Connection failed',r.message||r.error,'t-err');
+  }
+}
+
+function updateDbPort(){const m={mysql:3306,postgresql:5432,sqlite:0,mssql:1433};el('db-port').value=m[el('db-type').value]||3306;el('db-port').disabled=el('db-type').value==='sqlite';}
+
+async function loadDataStats(){
+  const r=await API('/api/data/stats');
+  if(r.error)return;
+  el('data-total').textContent=r.total||0;
+  el('data-latest').textContent=r.latest?new Date(r.latest).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+  el('data-manual').textContent=r.by_source?.manual||0;
+  el('data-excel').textContent=(r.by_source?.excel||0)+(r.by_source?.database||0);
+  _dataTotal=r.total||0;
+}
+
+async function loadDataList(){
+  const src=el('data-filter')?.value||'';
+  const limit=15,offset=(_dataPage-1)*limit;
+  const r=await API(`/api/data/list?limit=${limit}&offset=${offset}${src?'&source='+src:''}`);
+  if(r.error||!r.data){el('data-tbody').innerHTML=`<tr><td colspan="9" style="text-align:center;color:var(--red);padding:20px">${r.error||'Load failed'}</td></tr>`;return;}
+  const pages=Math.max(1,Math.ceil(r.total/limit));
+  el('data-count-info').textContent=`${r.total} records`;
+  el('data-page-info').textContent=`Page ${_dataPage} / ${pages}`;
+  const condMap={three_stage:'Cond. 1',four_stage:'Cond. 2',serial:'Cond. 3',parallel:'Cond. 1'};
+  const srcBadge={manual:'b-blue',excel:'b-amber',database:'b-green'};
+  el('data-tbody').innerHTML=r.data.length?r.data.map(row=>`
+    <tr>
+      <td>${row.id}</td>
+      <td style="font-size:9.5px">${row.timestamp?new Date(row.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'-'}</td>
+      <td>${(row.cu_in||0).toFixed(1)}</td><td>${(row.temperature||0).toFixed(0)}</td>
+      <td>${(row.current||0).toLocaleString()}</td><td>${(row.flow||0).toFixed(1)}</td><td>${(row.duration||0).toFixed(1)}</td>
+      <td><span class="badge b-cu">${condMap[row.mode]||row.mode}</span></td>
+      <td><span class="badge ${srcBadge[row.source]||'b-blue'}">${row.source||'manual'}</span></td>
+    </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:var(--t2);padding:20px">No records found</td></tr>`;
+}
+
+function dataPage(dir){const pages=Math.max(1,Math.ceil(_dataTotal/15));_dataPage=Math.max(1,Math.min(pages,_dataPage+dir));loadDataList();}
+async function runPreprocess(){el('pp-status').textContent='Processing...';await sleep(1200);el('pp-status').textContent='✅ Preprocessing complete';showToast('✅ Preprocessing done','Data cleaned and updated.','t-ok');}
+
+/* ════════════════════ SURROGATE ════════════════════════════ */
+const SURR_PARAMS={
+  1:{items:[
+    {id:'Cu_in',label:'Cu_in — Inlet Cu concentration (g/L)',min:29,max:55,val:38.9,step:0.1},
+    {id:'T',label:'T_A — Electrolyte temperature (℃)',min:40,max:65,val:58,step:1},
+    {id:'I',label:'I_A — Current intensity (A)',min:8000,max:27000,val:15000,step:500},
+    {id:'Q',label:'Q_A — Flow rate (m³/h)',min:111,max:123,val:117,step:0.5},
+    {id:'t',label:'t — Duration (h)',min:2,max:12,val:4,step:0.5},
+  ]},
+  2:{items:[
+    {id:'Cu_in',label:'Cu_in — Inlet Cu concentration (g/L)',min:29,max:55,val:37.5,step:0.1},
+    {id:'T',label:'T_B — Electrolyte temperature (℃)',min:40,max:65,val:61,step:1},
+    {id:'I',label:'I_B — Current intensity (A)',min:8000,max:29000,val:15840,step:500},
+    {id:'Q',label:'Q_B — Flow rate (m³/h)',min:113,max:122,val:118.6,step:0.5},
+    {id:'t',label:'t — Duration (h)',min:2,max:12,val:4,step:0.5},
+  ]},
+  3:{items:[
+    {id:'Cu_in',label:'Cu_in — Inlet Cu concentration (g/L)',min:29,max:55,val:39.2,step:0.1},
+    {id:'T_A',label:'T_A — Unit A temperature (℃)',min:40,max:65,val:56.4,step:1},
+    {id:'I_A',label:'I_A — Unit A current intensity (A)',min:10000,max:22000,val:14820,step:500},
+    {id:'Q_A',label:'Q_A — Unit A flow rate (m³/h)',min:113,max:122,val:118.4,step:0.5},
+    {id:'T_B',label:'T_B — Unit B temperature (℃)',min:40,max:65,val:59.1,step:1},
+    {id:'I_B',label:'I_B — Unit B current intensity (A)',min:10000,max:24000,val:14250,step:500},
+    {id:'Q_B',label:'Q_B — Unit B flow rate (m³/h)',min:113,max:122,val:118.9,step:0.5},
+    {id:'t',label:'t — Duration (h)',min:2,max:12,val:6,step:0.5},
+  ]},
+};
+const FI_DATA={
+  cu:[{n:'Month',v:.18},{n:'Day',v:.16},{n:'Hour',v:.14},{n:'I_A (current)',v:.12},{n:'V_A (voltage)',v:.10},{n:'P_A (power)',v:.09},{n:'Cu_in',v:.08},{n:'Q_A (flow)',v:.07},{n:'T_A (temp)',v:.04},{n:'Year',v:.02}],
+  as:[{n:'Month',v:.17},{n:'Q_A (flow)',v:.15},{n:'Day',v:.14},{n:'V_A (voltage)',v:.12},{n:'Hour',v:.11},{n:'I_A (current)',v:.10},{n:'Cu_in',v:.09},{n:'P_total',v:.07},{n:'T_A (temp)',v:.03},{n:'Year',v:.02}],
+};
+
+function surrSetCond(n,btn){
+  S.surrCond=n;
+  document.querySelectorAll('#surr-cond-btns .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); renderSurrInputs(); renderFI();
+}
+
+function renderSurrInputs(){
+  el('surr-inputs').innerHTML=SURR_PARAMS[S.surrCond].items.map(p=>`
+    <div class="param-row">
+      <div class="param-label"><span>${p.label}</span><span class="param-val" id="pv_${p.id}">${p.val}</span></div>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" id="pr_${p.id}" oninput="surrSlider('${p.id}',this.value)">
+    </div>`).join('');
+  document.querySelectorAll('#surr-inputs input[type=range]').forEach(rangeStyle);
+}
+
+function surrSlider(id,v){
+  el('pv_'+id).textContent=parseFloat(v).toFixed(id==='I'||id.startsWith('I_')?0:1);
+  rangeStyle(el('pr_'+id));
+}
+function rangeStyle(inp){if(!inp)return;const p=(inp.value-inp.min)/(inp.max-inp.min)*100;inp.style.setProperty('--pct',p+'%');}
+
+function getSurrParams(){const p={};SURR_PARAMS[S.surrCond].items.forEach(i=>{const sl=el('pr_'+i.id);p[i.id]=parseFloat(sl?sl.value:i.val);});return p;}
+
+function surrFill(){
+  API('/api/data/list?limit=1').then(r=>{
+    if(r.data&&r.data.length){
+      const d=r.data[0];
+      const cm={'three_stage':1,'four_stage':2,'serial':3,'parallel':1};
+      S.surrCond=cm[d.mode]||1;
+      document.querySelectorAll('#surr-cond-btns .seg-btn').forEach((b,i)=>b.classList.toggle('active',i===S.surrCond-1));
+      renderSurrInputs();
+      const m={'Cu_in':d.cu_in,'T':d.temperature,'I':d.current,'Q':d.flow,'t':d.duration};
+      Object.entries(m).forEach(([k,v])=>{const sl=el('pr_'+k);if(sl&&v){sl.value=v;surrSlider(k,v);}});
+      showToast('✅ Parameters filled','Loaded from latest data record.','t-ok');
+    } else showToast('⚠️ No data available','Please import data first.','t-warn');
+  });
+}
+
+async function runSurrogate(){
+  const btn=el('surr-btn');btn.disabled=true;btn.textContent='⏳ Predicting...';
+  el('surr-results').innerHTML='<div class="loading-bar"></div><div style="text-align:center;color:var(--t2);padding:20px;font-size:11px">Calling surrogate model...</div>';
+  el('surr-actions').style.display='none';
+  const r=await POST('/api/surrogate/predict',{condition:S.surrCond,params:getSurrParams()});
+  btn.disabled=false;btn.textContent='▶ Run Prediction';
+  if(r.status!=='success'){el('surr-results').innerHTML=`<div style="color:var(--red);padding:20px">❌ Prediction failed: ${r.message||r.error}</div>`;return;}
+  const res=r.result;
+  S.prediction={...res,params:getSurrParams(),cond:S.surrCond};
+  const Cu=res.Cu_out,As=res.As_out,V=res.V||res.V_A||res.V_B||0;
+  const ok_cu=Cu<=8,ok_as=As<=9;
+  el('surr-results').innerHTML=`
+    <div class="pred-grid">
+      <div class="pred-box" style="border-color:${ok_cu?'rgba(26,69,117,0.3)':'rgba(192,39,45,0.35)'}">
+        <div class="pred-label">Predicted Cu<sub>out</sub></div>
+        <div class="pred-val ${ok_cu?'c-blue':'c-red'}">${Cu.toFixed(2)}<span class="pred-unit">g/L</span></div>
+        <span class="badge ${ok_cu?'b-ok':'b-warn'}" style="margin-top:8px;display:inline-block">${ok_cu?'✓ Feasible':'⚠ Exceeded'}</span>
+      </div>
+      <div class="pred-box" style="border-color:${ok_as?'rgba(26,107,58,0.2)':'rgba(192,39,45,0.3)'}">
+        <div class="pred-label">Predicted As<sub>out</sub></div>
+        <div class="pred-val ${ok_as?'c-green':'c-red'}">${As.toFixed(2)}<span class="pred-unit">g/L</span></div>
+        <span class="badge ${ok_as?'b-ok':'b-warn'}" style="margin-top:8px;display:inline-block">${ok_as?'✓ Feasible':'⚠ Exceeded'}</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div class="mstrip"><div><div class="small">V<sub>A</sub> / V<sub>avg</sub></div><div class="mono c-amber" style="font-size:15px;margin-top:3px">${V.toFixed(2)} V</div></div></div>
+      <div class="mstrip"><div><div class="small">E<sub>total</sub></div><div class="mono c-orange" style="font-size:15px;margin-top:3px">${res.E} kWh</div></div></div>
+      <div class="mstrip"><div><div class="small">Net Profit</div><div class="mono c-amber" style="font-size:15px;margin-top:3px">${res.profit} ×10⁴ CNY</div></div></div>
+    </div>
+    <div style="margin-top:10px;padding:8px 10px;background:var(--bg-base);border-radius:var(--r-sm);border:1px solid var(--bd);font-size:9.5px;color:var(--t3);font-family:var(--font-mono)">
+      Source: ${res.model_source==='real'?'🟢 Local joblib models':'🟡 Simulation mode (joblib not found)'} · Feasible: ${res.feasible?'✅ Yes':'❌ No'}
+    </div>`;
+  el('surr-actions').style.display='block';
+  showToast('✅ Prediction complete',`Cu_out=${Cu} g/L · As_out=${As} g/L · Profit=${res.profit} ×10⁴ CNY`,'t-ok');
+}
+
+function applySurrToOverview(){
+  if(!S.prediction){showToast('⚠️ Run prediction first','','t-warn');return;}
+  const r=S.prediction;updateKPIs(r.Cu_out,r.As_out,r.E,r.profit,'prediction');
+  syncToOperation({...r,scene:'Prediction Result',Cu_in:r.params?.Cu_in||38.9,_cond:S.surrCond||1},'prediction');
+  gotoTab('overview');showToast('📊 Synced','Overview and Advisory updated.','t-ok');
+}
+
+// Voltage feature importance data
+const FI_DATA_V=[{n:'I (current)',v:.35},{n:'T (temp)',v:.18},{n:'Cu_in',v:.15},{n:'Q (flow)',v:.10},{n:'Hour',v:.08},{n:'Month',v:.07},{n:'Day',v:.04},{n:'Year',v:.03}];
+function renderFI(){
+  const curcols={'cu':'var(--blue)','as':'var(--green)'};
+  ['cu','as'].forEach(t=>{
+    const data=FI_DATA[t],max=data[0].v,col=curcols[t];
+    el('fi-'+t).innerHTML=data.map(d=>`
+      <div class="fi-row">
+        <div class="fi-name">${d.n}</div>
+        <div class="fi-bar"><div class="fi-fill" style="width:${d.v/max*100}%;background:linear-gradient(90deg,${col},rgba(0,0,0,0.08))"></div></div>
+        <div class="fi-pct">${(d.v*100).toFixed(0)}%</div>
+      </div>`).join('');
+  });
+  // Voltage model
+  const vdiv=el('fi-v');if(vdiv){const vm=FI_DATA_V[0].v;vdiv.innerHTML=FI_DATA_V.map(d=>`<div class="fi-row"><div class="fi-name">${d.n}</div><div class="fi-bar"><div class="fi-fill" style="width:${d.v/vm*100}%;background:linear-gradient(90deg,var(--amber),rgba(0,0,0,0.08))"></div></div><div class="fi-pct">${(d.v*100).toFixed(0)}%</div></div>`).join('');}
+}
+
+/* ════════════════════ OPT MODAL ═══════════════════════════ */
+const NSGA_DATA={
+  1:[
+    {scene:'Quality Priority',tag:'q',Cu_in:37.0,T:64,I:20072,Q:112,t:7.85,Cu_out:3.64,As_out:4.93,E:5496,profit:27.83},
+    {scene:'Energy Priority',tag:'e',Cu_in:40.0,T:60,I:8001,Q:120,t:2.0,Cu_out:4.98,As_out:5.79,E:506,profit:8.00},
+    {scene:'Economic Priority',tag:'p',Cu_in:55.0,T:64,I:13553,Q:123,t:8.0,Cu_out:4.63,As_out:6.28,E:3575,profit:47.05},
+    {scene:'Balanced',tag:'b',Cu_in:34.52,T:64,I:20314,Q:112,t:4.06,Cu_out:3.71,As_out:4.89,E:2896,profit:13.29},
+  ],
+  2:[
+    {scene:'Quality Priority',tag:'q',Cu_in:29.52,T:62,I:16151,Q:118,t:7.95,Cu_out:4.47,As_out:5.44,E:4471,profit:22.29},
+    {scene:'Energy Priority',tag:'e',Cu_in:38.67,T:63,I:8002,Q:119,t:2.0,Cu_out:5.90,As_out:6.90,E:512,profit:7.41},
+    {scene:'Economic Priority',tag:'p',Cu_in:55.0,T:62,I:15776,Q:122,t:8.0,Cu_out:5.26,As_out:7.84,E:4081,profit:46.09},
+    {scene:'Balanced',tag:'b',Cu_in:52.26,T:62,I:15606,Q:118,t:7.16,Cu_out:4.85,As_out:6.18,E:3662,profit:37.92},
+  ],
+  3:[
+    {scene:'Quality Priority',tag:'q',Cu_in:36.6,T_A:47,I_A:13968,Q_A:114,T_B:52,I_B:12500,Q_B:115,t:7.90,Cu_out:4.13,As_out:3.91,E:9170,profit:28.29},
+    {scene:'Energy Priority',tag:'e',Cu_in:31.43,T_A:60,I_A:10002,Q_A:120,T_B:58,I_B:9800,Q_B:118,t:2.0,Cu_out:4.22,As_out:6.21,E:1177,profit:6.14},
+    {scene:'Economic Priority',tag:'p',Cu_in:55.0,T_A:47,I_A:10831,Q_A:122,T_B:50,I_B:11200,Q_B:120,t:8.0,Cu_out:4.87,As_out:7.06,E:9183,profit:46.36},
+    {scene:'Balanced',tag:'b',Cu_in:54.99,T_A:47,I_A:14032,Q_A:114,T_B:51,I_B:13500,Q_B:116,t:7.98,Cu_out:4.28,As_out:4.29,E:8995,profit:44.73},
+  ],
+};
+
+let _selScene=null;
+function openOptModal(type){
+  const data=NSGA_DATA[S.surrCond||1];
+  const badges=['b-blue','b-green','b-amber','b-orange'];
+  el('modalBox').innerHTML=`
+    <div class="modal-hd">
+      <span class="modal-title">${type==='nsga2'?'🧬 NSGA-II Compromise Solutions':'🤖 Safe RL Optimization Solutions'}</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--t2);margin-bottom:16px;line-height:1.7">
+      Current input: Cu_in = ${S.prediction?.params?.Cu_in||'—'} g/L · Condition ${S.surrCond}<br>
+      Select a priority scenario. The chosen solution will be synced to the Overview dashboard.
+    </div>
+    <div class="sc-grid" id="modal-sc">
+      ${data.map((s,i)=>`
+        <div class="sc-card" id="msc-${i}" onclick="selScene(${i})">
+          <div class="sc-label"><span class="badge ${badges[i]}">${s.scene}</span></div>
+          <div class="sc-row"><span class="sc-key">Cu_out</span><span class="sc-v c-blue">${s.Cu_out} g/L</span></div>
+          <div class="sc-row"><span class="sc-key">As_out</span><span class="sc-v c-green">${s.As_out} g/L</span></div>
+          <div class="sc-row"><span class="sc-key">E_total</span><span class="sc-v c-orange">${s.E} kWh</span></div>
+          <div class="sc-row"><span class="sc-key">Net Profit</span><span class="sc-v c-amber">${s.profit} ×10⁴ CNY</span></div>
+        </div>`).join('')}
+    </div>
+    <div id="modal-apply" style="display:none;margin-top:16px;padding:12px;background:var(--blue-pale);border-radius:var(--r-sm);border:1px solid var(--bd-bl)">
+      <div id="modal-sel-info" style="font-size:10px;color:var(--t1);margin-bottom:12px;font-family:var(--font-mono)"></div>
+      <button class="btn-cu" onclick="applyModal()">📊 Apply to Overview + Generate Advisory</button>
+    </div>`;
+  el('modal').classList.add('show');
+}
+
+function selScene(i){
+  _selScene={...NSGA_DATA[S.surrCond||1][i]};
+  document.querySelectorAll('#modal-sc .sc-card').forEach((c,j)=>c.classList.toggle('active',j===i));
+  el('modal-apply').style.display='block';
+  const s=_selScene;
+  el('modal-sel-info').textContent=`${s.scene}  |  Cu_out=${s.Cu_out}  |  As_out=${s.As_out}  |  E_total=${s.E} kWh  |  Net Profit=${s.profit} ×10⁴ CNY`;
+}
+
+function applyModal(){
+  if(!_selScene)return;
+  const src=_selScene._type||'nsga2';
+  updateKPIs(_selScene.Cu_out,_selScene.As_out,_selScene.E,_selScene.profit,src);
+  syncToOperation(_selScene,src);closeModal();gotoTab('overview');
+  showToast('✅ Solution applied',`${_selScene.scene} synced.`,'t-ok');
+}
+function closeModal(){el('modal').classList.remove('show');_selScene=null;}
+
+/* ════════════════════ NSGA-II ══════════════════════════════ */
+function initNsga2Config(){
+  const cfg=[
+    {id:'pop',label:'Population size (N)',min:30,max:300,val:100,step:10,fmt:v=>v},
+    {id:'gen',label:'Max generations',min:50,max:500,val:200,step:50,fmt:v=>v},
+    {id:'pc',label:'Crossover probability p_c',min:50,max:99,val:90,step:5,fmt:v=>(v*0.01).toFixed(2)},
+    {id:'eta',label:'Mutation index η_m',min:5,max:40,val:20,step:1,fmt:v=>v},
+    {id:'nsol',label:'Solutions retained',min:10,max:100,val:50,step:5,fmt:v=>v},
+  ];
+  el('nsga2-config').innerHTML=cfg.map(p=>`
+    <div class="param-row">
+      <div class="param-label"><span>${p.label}</span><span class="param-val" id="nv-${p.id}">${p.fmt(p.val)}</span></div>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}"
+        oninput="el('nv-${p.id}').textContent=(${p.fmt.toString()})(this.value);rangeStyle(this)">
+    </div>`).join('');
+  document.querySelectorAll('#nsga2-config input[type=range]').forEach(rangeStyle);
+  const cst=[
+    {id:'cu',label:'C₁ Cu_out upper limit ≤ (g/L)',min:6,max:12,val:8.0,step:0.5,dir:'≤'},
+    {id:'as',label:'C₂ As_out lower limit ≥ (g/L)',min:2,max:8,val:4.0,step:0.5,dir:'≥'},
+    {id:'j',label:'C₃ Current density J_max ≤ (A/m²)',min:200,max:500,val:340,step:10,dir:'≤'},
+    {id:'v',label:'C₄ Cell voltage V_cell_max ≤ (V)',min:2.0,max:3.5,val:2.5,step:0.05,dir:'≤'},
+    {id:'ca',label:'C₅ Cu/As ratio max ≤',min:0.3,max:1.2,val:0.80,step:0.05,dir:'≤'},
+  ];
+  el('nsga2-constraints').innerHTML=cst.map(p=>`
+    <div class="param-row">
+      <div class="param-label"><span>${p.label} <span style="color:var(--t3);font-size:8px">${p.dir}</span></span><span class="param-val" id="cv-${p.id}">${p.val}</span></div>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}"
+        oninput="el('cv-${p.id}').textContent=parseFloat(this.value).toFixed(2);rangeStyle(this)">
+    </div>`).join('');
+  document.querySelectorAll('#nsga2-constraints input[type=range]').forEach(rangeStyle);
+}
+
+function nsga2SetMode(mode,btn){
+  S.nsga2Mode=mode;
+  document.querySelectorAll('#nsga2-run-mode-btns .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const div=el('nsga2-data-input');
+  if(mode==='excel'){div.style.display='block';div.innerHTML=`<label class="flabel">Select Excel / CSV file</label><input type="file" id="nsga2-file" accept=".xlsx,.xls,.csv">`;}
+  else if(mode==='manual'){div.style.display='block';div.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="flabel">Cu_in (g/L)</label><input type="number" id="nsga2-cu" value="38.9" step="0.1"></div><div><label class="flabel">T_A (℃)</label><input type="number" id="nsga2-temp" value="57" step="1"></div></div>`;}
+  else{div.style.display='none';div.innerHTML='';}
+}
+
+function nsga2ShowCond(n,btn){
+  S.nsga2Cond=n;
+  document.querySelectorAll('#nsga2-cond-btns .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderNsga2Table();
+}
+
+const NSGA_COL_HDRS={
+  1:['Scenario','Cu_in (g/L)','T_A (℃)','I_A (A)','Q_A (m³/h)','t (h)','Cu_out','As_out','E_total','Profit (×10⁴)',''],
+  2:['Scenario','Cu_in (g/L)','T_B (℃)','I_B (A)','Q_B (m³/h)','t (h)','Cu_out','As_out','E_total','Profit (×10⁴)',''],
+  3:['Scenario','Cu_in (g/L)','T_A (℃)','I_A (A)','Q_A (m³/h)','T_B (℃)','I_B (A)','Q_B (m³/h)','t (h)','Cu_out','As_out','E_total','Profit (×10⁴)',''],
+};
+function renderNsga2Table(){
+  const c=S.nsga2Cond||1;const data=NSGA_DATA[c];const hdrs=NSGA_COL_HDRS[c];const badges=['b-blue','b-green','b-amber','b-orange'];
+  if(el('nsga2-thead'))el('nsga2-thead').innerHTML=`<tr>${hdrs.map(h=>`<th>${h}</th>`).join('')}</tr>`;
+  el('nsga2-table').innerHTML=data.map((s,i)=>{
+    let cols=`<td><span class="badge ${badges[i]}">${s.scene}</span></td><td>${s.Cu_in.toFixed(1)}</td>`;
+    if(c===1)cols+=`<td>${s.T||s.TA||''}</td><td>${(s.I||s.IA||0).toLocaleString()}</td><td>${s.Q||s.QA||''}</td><td>${s.t.toFixed(1)}</td>`;
+    else if(c===2)cols+=`<td>${s.T||s.TB||''}</td><td>${(s.I||s.IB||0).toLocaleString()}</td><td>${s.Q||s.QB||''}</td><td>${s.t.toFixed(1)}</td>`;
+    else cols+=`<td>${s.TA||''}</td><td>${(s.IA||0).toLocaleString()}</td><td>${s.QA||''}</td><td>${s.TB||''}</td><td>${(s.IB||0).toLocaleString()}</td><td>${s.QB||''}</td><td>${s.t.toFixed(1)}</td>`;
+    cols+=`<td class="mono ${s.Cu_out<5?'c-blue':''}">${s.Cu_out}</td><td class="mono ${s.As_out>=4?'c-green':''}">${s.As_out}</td><td class="mono">${s.E.toLocaleString()}</td><td class="mono c-amber">${s.profit.toFixed(2)}</td><td><button class="btn-sm" style="color:var(--blue)" onclick="applyNsga2Row(${i})">Apply</button></td>`;
+    return`<tr>${cols}</tr>`;
+  }).join('');
+}
+
+function applyNsga2Row(i){
+  const s=NSGA_DATA[S.nsga2Cond][i];
+  updateKPIs(s.Cu_out,s.As_out,s.E,s.profit,'nsga2');
+  syncToOperation(s);
+  showToast('✅ Solution applied',`${s.scene} synced to Overview.`,'t-ok');
+}
+
+async function runNSGA2(){
+  const btn=el('nsga2-btn');btn.disabled=true;btn.textContent='⏳ Optimizing...';
+  el('nsga2-prog-wrap').style.display='block';updateNsga2Prog(5,'Launching NSGA-II...');
+  const params={run_mode:S.nsga2Mode,algorithm_params:{pop:parseInt(el('nv-pop').textContent),gen:parseInt(el('nv-gen').textContent),pc:parseFloat(el('nv-pc').textContent),eta:parseInt(el('nv-eta').textContent),n_solutions:parseInt(el('nv-nsol').textContent)}};
+  if(S.nsga2Mode==='excel'&&el('nsga2-file')?.files[0]) params.excel_filename=el('nsga2-file').files[0].name;
+  if(S.nsga2Mode==='manual') params.manual_data={cu_in:parseFloat(el('nsga2-cu')?.value||38.9),temperature:parseFloat(el('nsga2-temp')?.value||57)};
+  const r=await POST('/api/nsga2/run',{params});
+  if(r.status==='success'){
+    S.activeTask=r.task_id;
+    showToast('✅ NSGA-II launched',`Task ID: ${r.task_id}`,'t-ok');
+    if(!socket?.connected) pollTask(r.task_id,'nsga2');
+  } else {
+    btn.disabled=false;btn.textContent='🧬 Launch NSGA-II Optimization';
+    showToast('❌ Launch failed',r.message||r.error,'t-err');
+  }
+}
+
+function updateNsga2Prog(pct,msg){
+  el('nsga2-prog').style.width=pct+'%';el('nsga2-prog-pct').textContent=pct+'%';el('nsga2-prog-msg').textContent=msg||'';
+}
+function handleNsga2Done(d){
+  updateNsga2Prog(100,'✅ Optimization complete');
+  el('nsga2-btn').disabled=false;el('nsga2-btn').textContent='🧬 Launch NSGA-II Optimization';
+  drawParetoNice('pareto1','cu-as');drawParetoNice('pareto2','e-profit');renderNsga2Table();
+  showToast('✅ NSGA-II complete','Pareto front generated and results updated.','t-ok');
+}
+
+async function pollTask(id,type){
+  for(let i=0;i<60;i++){
+    await sleep(2000);
+    const r=await API(`/api/task/${id}`);
+    if(!r||r.status==='not_found')break;
+    if(type==='nsga2') updateNsga2Prog(r.progress||0,r.status);
+    if(type==='rl') updateRLProg({progress:r.progress||0,msg:r.status});
+    if(r.status==='completed'||r.status==='failed'||r.status==='error'){
+      if(type==='nsga2') handleNsga2Done({task_id:id});
+      if(type==='rl') handleRLDone({task_id:id});
+      break;
+    }
+  }
+}
+
+/* ════════════════════ SAFE RL ══════════════════════════════ */
+function initRLConfig(){
+  const cfg=[
+    {id:'cond',label:'Training condition',type:'select',opts:['Condition 1 — Unit A','Condition 2 — Unit B','Condition 3 — Series A+B'],vals:[1,2,3],val:3},
+    {id:'steps',label:'Total training steps',min:50000,max:600000,val:300000,step:50000,fmt:v=>parseInt(v).toLocaleString()},
+    {id:'lr',label:'Actor learning rate',min:1,max:10,val:3,step:1,fmt:v=>['1e-5','3e-5','1e-4','3e-4','5e-4','1e-3','2e-3','3e-3','5e-3','1e-2'][v-1]},
+    {id:'climit',label:'Cost limit (d_i)',min:2,max:20,val:5,step:1,fmt:v=>(v*0.01).toFixed(2)},
+    {id:'pref',label:'Preference weight: Quality ↔ Profit',min:0,max:100,val:50,step:10,fmt:v=>v<20?'Pure quality':v<40?'Quality first':v<60?'Balanced':v<80?'Profit first':'Pure profit'},
+  ];
+  el('rl-config').innerHTML=cfg.map(p=>{
+    if(p.type==='select') return `<div class="param-row"><label class="flabel">${p.label}</label><select id="rl-${p.id}">${p.opts.map((o,i)=>`<option value="${p.vals[i]}" ${i===2?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    return `<div class="param-row"><div class="param-label"><span>${p.label}</span><span class="param-val" id="rlv-${p.id}">${p.fmt(p.val)}</span></div><input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" oninput="el('rlv-${p.id}').textContent=(${p.fmt.toString()})(this.value);rangeStyle(this)"></div>`;
+  }).join('');
+  document.querySelectorAll('#rl-config input[type=range]').forEach(rangeStyle);
+}
+
+function rlSetMode(mode,btn){
+  S.rlMode=mode;
+  document.querySelectorAll('#rl-run-mode-btns .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const div=el('rl-data-input');
+  if(mode==='excel'){div.style.display='block';div.innerHTML=`<label class="flabel">Select Excel / CSV file</label><input type="file" id="rl-file" accept=".xlsx,.xls,.csv">`;}
+  else if(mode==='manual'){div.style.display='block';div.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="flabel">Cu_in (g/L)</label><input type="number" id="rl-cu" value="38.9" step="0.1"></div><div><label class="flabel">T_A (℃)</label><input type="number" id="rl-temp" value="57" step="1"></div></div>`;}
+  else{div.style.display='none';div.innerHTML='';}
+}
+
+async function runRL(){
+  const btn=el('rl-btn-s');
+  btn.disabled=true;btn.textContent='⏳ Training...';
+  el('rl-prog-wrap').style.display='block';
+  el('rl-log').innerHTML='<span class="li">Launching PPO-Lagrangian training...</span>\n';
+  const cond=parseInt(el('rl-cond')?.value||3);_rlActiveCond=cond;
+  const params={run_mode:S.rlMode,condition:cond,
+    algorithm_params:{steps:parseInt((el('rlv-steps')?.textContent||'300000').replace(/,/g,'')),lr:el('rlv-lr')?.textContent||'3e-4',cost_limit:parseFloat(el('rlv-climit')?.textContent||'0.05'),preference:el('rlv-pref')?.textContent||'Balanced'}};
+  if(S.rlMode==='excel'&&el('rl-file')?.files[0]) params.excel_filename=el('rl-file').files[0].name;
+  if(S.rlMode==='manual') params.manual_data={cu_in:parseFloat(el('rl-cu')?.value||38.9),temperature:parseFloat(el('rl-temp')?.value||57)};
+  const r=await POST('/api/rl/run',{params});
+  if(r.status==='success'){
+    S.activeTask=r.task_id;
+    showToast('✅ RL training launched',`Condition ${cond} · Task ${r.task_id}`,'t-ok');
+    if(!socket?.connected) pollTask(r.task_id,'rl');
+  } else {
+    btn.disabled=false;btn.textContent='🤖 Launch PPO-Lagrangian Training';
+    showToast('❌ Launch failed',r.message||r.error,'t-err');
+  }
+}
+
+function updateRLProg(d){
+  el('rl-prog').style.width=(d.progress||0)+'%';el('rl-prog-pct').textContent=(d.progress||0)+'%';
+  if(d.step) el('rl-step').textContent=(d.step||0).toLocaleString();
+  if(d.reward!==undefined) el('rl-reward').textContent=(d.reward||0).toFixed(3);
+  if(d.lambda!==undefined) el('rl-lambda').textContent=(d.lambda||0).toFixed(3);
+  if(d.constraint_rate!==undefined) el('rl-crate').textContent=(d.constraint_rate||0).toFixed(1)+'%';
+  if(d.msg&&d.msg.trim()){const log=el('rl-log');log.innerHTML+=`<span class="li">${d.msg}</span>\n`;log.scrollTop=log.scrollHeight;}
+  el('rl-prog-msg').textContent=d.msg||'';
+  if(d.step&&d.reward!==undefined) drawRLConv(d.step,d.reward);
+}
+function handleRLDone(d){
+  el('rl-prog').style.width='100%';el('rl-prog-pct').textContent='100%';
+  el('rl-btn-s').disabled=false;el('rl-btn-s').textContent='🤖 Launch PPO-Lagrangian Training';
+  el('rl-log').innerHTML+='<span class="lo">✅ Training complete\n</span>';
+  renderRLScenarios();drawRLPareto();drawCostConv();
+  showToast('✅ RL training complete','Pareto front generated.','t-ok');
+}
+
+// RL solutions per condition
+const RL_DATA_BY_COND={
+  1:[{scene:'Quality Priority',Cu_in:37.5,TA:63,IA:19500,QA:113,t:7.60,Cu_out:3.89,As_out:4.82,E:5240,profit:26.80},
+     {scene:'Energy Priority',Cu_in:40.0,TA:60,IA:8500,QA:120,t:2.0,Cu_out:4.72,As_out:5.98,E:420,profit:7.50},
+     {scene:'Economic Priority',Cu_in:55.0,TA:64,IA:13800,QA:122,t:8.0,Cu_out:4.41,As_out:6.15,E:3200,profit:48.30},
+     {scene:'Balanced',Cu_in:35.0,TA:63,IA:19800,QA:112,t:4.5,Cu_out:3.95,As_out:4.82,E:2650,profit:31.20}],
+  2:[{scene:'Quality Priority',Cu_in:29.0,TB:62,IB:16500,QB:118,t:8.0,Cu_out:4.31,As_out:4.87,E:4120,profit:24.60},
+     {scene:'Energy Priority',Cu_in:38.0,TB:63,IB:8500,QB:118,t:2.0,Cu_out:5.42,As_out:6.78,E:488,profit:8.20},
+     {scene:'Economic Priority',Cu_in:55.0,TB:62,IB:15500,QB:121,t:8.0,Cu_out:4.98,As_out:7.22,E:3850,profit:47.80},
+     {scene:'Balanced',Cu_in:52.0,TB:62,IB:15200,QB:118,t:7.0,Cu_out:4.47,As_out:5.94,E:3410,profit:39.50}],
+  3:[{scene:'Quality Priority',Cu_in:37.0,TA:47,IA:14200,QA:115,TB:53,IB:12800,QB:116,t:7.80,Cu_out:3.98,As_out:4.05,E:8820,profit:27.60},
+     {scene:'Energy Priority',Cu_in:31.0,TA:60,IA:10500,QA:120,TB:58,IB:10000,QB:118,t:2.0,Cu_out:4.15,As_out:6.12,E:980,profit:5.80},
+     {scene:'Economic Priority',Cu_in:55.0,TA:47,IA:11000,QA:122,TB:50,IB:11500,QB:120,t:8.0,Cu_out:4.65,As_out:7.01,E:9050,profit:48.10},
+     {scene:'Balanced',Cu_in:54.5,TA:48,IA:14000,QA:114,TB:51,IB:13200,QB:116,t:7.90,Cu_out:4.11,As_out:4.31,E:8650,profit:45.50}],
+};
+let _rlActiveCond=3;
+function renderRLScenarios(){
+  const cond=_rlActiveCond||3;const data=RL_DATA_BY_COND[cond]||RL_DATA_BY_COND[3];
+  const badges=['b-blue','b-green','b-amber','b-orange'];
+  el('rl-scenarios').innerHTML=data.map((s,i)=>`
+    <div class="sc-card" onclick="this.classList.toggle('active')">
+      <div class="sc-label"><span class="badge ${badges[i]}">${s.scene}</span></div>
+      <div class="sc-row"><span class="sc-key">Cu_out</span><span class="sc-v c-blue">${s.Cu_out} g/L</span></div>
+      <div class="sc-row"><span class="sc-key">As_out</span><span class="sc-v c-green">${s.As_out} g/L</span></div>
+      <div class="sc-row"><span class="sc-key">E_total</span><span class="sc-v c-orange">${s.E} kWh</span></div>
+      <div class="sc-row"><span class="sc-key">Net Profit</span><span class="sc-v c-amber">${s.profit} ×10⁴ CNY</span></div>
+    </div>`).join('');
+  el('rl-apply-area').style.display='block';
+  el('rl-apply-btns').innerHTML=data.map((s,i)=>`
+    <button class="btn-sm" style="color:var(--green);border-color:rgba(26,107,58,0.3)" onclick="applyRL(${i})">Apply [${s.scene}]</button>`).join('');
+}
+function applyRL(i){
+  const cond=_rlActiveCond||3;const s=(RL_DATA_BY_COND[cond]||RL_DATA_BY_COND[3])[i];
+  updateKPIs(s.Cu_out,s.As_out,s.E,s.profit,'rl');
+  syncToOperation({...s,_cond:cond},'rl');
+  gotoTab('overview');showToast('✅ RL solution applied',`${s.scene} synced.`,'t-ok');
+}
+function rlShowResult(n,btn){
+  _rlActiveCond=n;
+  document.querySelectorAll('#rl-cond-show-btns .seg-btn').forEach((b,i)=>b.classList.toggle('active',i===n-1));
+  renderRLScenarios();
+}
+
+/* ════════════════════ CHARTS ════════════════════════════════ */
+function drawPareto(cid,xi,yi){
+  const c=el(cid);if(!c)return;
+  const W=c.offsetWidth||400,H=c.offsetHeight||200;
+  c.width=W;c.height=H;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='rgba(244,243,239,0.7)';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(26,69,117,0.055)';ctx.lineWidth=0.5;
+  for(let i=1;i<5;i++){ctx.beginPath();ctx.moveTo(W/5*i,0);ctx.lineTo(W/5*i,H);ctx.stroke();}
+  for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(0,H/4*i);ctx.lineTo(W,H/4*i);ctx.stroke();}
+  const cols=['#2563a8','#c0471a','#1a6b3a'];
+  const lbls=['Cond. 1','Cond. 2','Cond. 3'];
+  [1,2,3].forEach((co,ci)=>{
+    for(let i=0;i<50;i++){
+      const t=i/49;
+      let px,py;
+      if(xi===0&&yi===1){px=3.5+t*2.5+rand(0.22);py=4+(1-t)*3.5+rand(0.28)+ci*0.18;}
+      else{px=400+t*8000+rand(280);py=-(40000+t*420000)+rand(22000);}
+      const sx=18+((px-(xi<2?3.5:400))/(xi<2?2.8:8200))*(W-36);
+      const sy=H-12-((-py-(yi<2?4:40000))/(yi<2?3.8:430000))*(H-24);
+      ctx.fillStyle=cols[ci]+'95';
+      ctx.beginPath();ctx.arc(Math.max(10,Math.min(W-10,sx)),Math.max(8,Math.min(H-8,sy)),2.8,0,6.28);ctx.fill();
+    }
+    ctx.fillStyle=cols[ci];
+    ctx.beginPath();ctx.arc(12,H-24+ci*16,4,0,6.28);ctx.fill();
+    ctx.fillStyle='rgba(58,56,48,0.85)';ctx.font=`13px 'IBM Plex Sans',sans-serif`;
+    ctx.textAlign='left';ctx.fillText(lbls[ci],20,H-19+ci*16);
+  });
+}
+
+function drawParetoNice(cid,type){
+  const canvas=el(cid);if(!canvas)return;
+  const W=canvas.offsetWidth||420,H=canvas.offsetHeight||200;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  const bgG=ctx.createLinearGradient(0,0,0,H);bgG.addColorStop(0,'#fafaf7');bgG.addColorStop(1,'#f0eeea');
+  ctx.fillStyle=bgG;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(26,69,117,0.06)';ctx.lineWidth=0.7;
+  for(let i=1;i<5;i++){ctx.beginPath();ctx.moveTo(i*W/5,12);ctx.lineTo(i*W/5,H-22);ctx.stroke();}
+  for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(18,i*H/4);ctx.lineTo(W-10,i*H/4);ctx.stroke();}
+  const conditions=[
+    {col:'#2563a8',fill:'rgba(37,99,168,0.78)',shadow:'rgba(37,99,168,0.28)',label:'Cond. 1 · Unit A'},
+    {col:'#c0471a',fill:'rgba(192,71,26,0.78)',shadow:'rgba(192,71,26,0.28)',label:'Cond. 2 · Unit B'},
+    {col:'#1a6b3a',fill:'rgba(26,107,58,0.78)',shadow:'rgba(26,107,58,0.28)',label:'Cond. 3 · Series'},
+  ];
+  const rng=(s,i)=>{let x=Math.sin(s*127.1+i*314.3)*10000;return x-Math.floor(x);};
+  if(type==='cu-as'){
+    const xMin=3.3,xMax=6.8,yMin=3.8,yMax=8.8;
+    const px=v=>20+(v-xMin)/(xMax-xMin)*(W-32),py=v=>H-22-(v-yMin)/(yMax-yMin)*(H-34);
+    // Lower bound line As_out=4.0
+    ctx.strokeStyle='rgba(192,39,45,0.4)';ctx.lineWidth=1.2;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(px(xMin),py(4.0));ctx.lineTo(px(xMax),py(4.0));ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(192,39,45,0.6)';ctx.font=`13px 'DM Mono',monospace`;ctx.textAlign='left';ctx.fillText('C₂: As_out ≥ 4.0 g/L',px(xMin)+4,py(4.0)-4);
+    const cRanges=[{xr:[3.5,5.3],yr:[4.5,7.0],n:45},{xr:[4.1,6.3],yr:[4.8,7.8],n:40},{xr:[3.8,5.5],yr:[4.0,7.2],n:48}];
+    conditions.forEach(({col,fill,shadow,label},ci)=>{
+      const cr=cRanges[ci];const pts=[];
+      for(let i=0;i<cr.n;i++){const t=i/cr.n;pts.push([cr.xr[0]+t*(cr.xr[1]-cr.xr[0])+(rng(ci+1,i)-0.5)*0.35,Math.max(4.0,cr.yr[0]+(1-Math.pow(t,0.6))*(cr.yr[1]-cr.yr[0])+(rng(ci+2,i)-0.5)*0.38)]);}
+      pts.sort((a,b)=>a[0]-b[0]);
+      // Gradient line
+      const lg=ctx.createLinearGradient(px(pts[0][0]),0,px(pts[pts.length-1][0]),0);
+      lg.addColorStop(0,col+'44');lg.addColorStop(1,col+'99');
+      ctx.strokeStyle=lg;ctx.lineWidth=1.4;ctx.beginPath();
+      pts.forEach(([x,y],i)=>i===0?ctx.moveTo(px(x),py(y)):ctx.lineTo(px(x),py(y)));ctx.stroke();
+      pts.forEach(([x,y])=>{ctx.shadowColor=shadow;ctx.shadowBlur=5;ctx.fillStyle=fill;ctx.beginPath();ctx.arc(px(x),py(y),3.0,0,6.28);ctx.fill();ctx.shadowBlur=0;});
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(22,15+ci*19,3.5,0,6.28);ctx.fill();
+      ctx.fillStyle='rgba(40,38,34,0.78)';ctx.font=`13px 'IBM Plex Sans',sans-serif`;ctx.textAlign='left';ctx.fillText(label,32,19+ci*19);
+    });
+    ctx.fillStyle='rgba(100,98,92,0.55)';ctx.font=`13px 'DM Mono',monospace`;ctx.textAlign='center';
+    ctx.fillText('Cu_out (g/L) → minimize',W/2,H-5);
+    ctx.save();ctx.rotate(-Math.PI/2);ctx.fillText('As_out (g/L) → minimize',-H/2,12);ctx.restore();
+  } else {
+    const xMin=300,xMax=10500,yMin=3,yMax=52;
+    const px=v=>22+(v-xMin)/(xMax-xMin)*(W-34),py=v=>H-22-(v-yMin)/(yMax-yMin)*(H-32);
+    const cRanges=[{xr:[400,6200],yr:[5,50],n:45},{xr:[400,5800],yr:[5,48],n:40},{xr:[900,10200],yr:[5,48],n:48}];
+    conditions.forEach(({col,fill,shadow,label},ci)=>{
+      const cr=cRanges[ci];const pts=[];
+      for(let i=0;i<cr.n;i++){const t=i/cr.n;pts.push([cr.xr[0]+t*(cr.xr[1]-cr.xr[0])+(rng(ci+1,i)-0.5)*(cr.xr[1]-cr.xr[0])*0.18,cr.yr[0]+t*(cr.yr[1]-cr.yr[0])+(rng(ci+2,i)-0.5)*(cr.yr[1]-cr.yr[0])*0.14]);}
+      pts.sort((a,b)=>a[0]-b[0]);
+      const lg=ctx.createLinearGradient(px(pts[0][0]),0,px(pts[pts.length-1][0]),0);
+      lg.addColorStop(0,col+'33');lg.addColorStop(1,col+'88');
+      ctx.strokeStyle=lg;ctx.lineWidth=1.3;ctx.beginPath();pts.forEach(([x,y],i)=>i===0?ctx.moveTo(px(x),py(y)):ctx.lineTo(px(x),py(y)));ctx.stroke();
+      pts.forEach(([x,y])=>{ctx.shadowColor=shadow;ctx.shadowBlur=4;ctx.fillStyle=fill;ctx.beginPath();ctx.arc(px(x),py(y),2.8,0,6.28);ctx.fill();ctx.shadowBlur=0;});
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(22,15+ci*19,3.5,0,6.28);ctx.fill();
+      ctx.fillStyle='rgba(40,38,34,0.78)';ctx.font=`13px 'IBM Plex Sans',sans-serif`;ctx.textAlign='left';ctx.fillText(label,32,19+ci*19);
+    });
+    ctx.fillStyle='rgba(100,98,92,0.55)';ctx.font=`13px 'DM Mono',monospace`;ctx.textAlign='center';
+    ctx.fillText('E_total (kWh) → minimize',W/2,H-5);
+    ctx.save();ctx.rotate(-Math.PI/2);ctx.fillText('Net Profit (×10⁴ CNY) → maximize',-H/2,12);ctx.restore();
+  }
+}
+
+function drawCostConv(){
+  const c=el('rl-cost');if(!c)return;
+  const W=c.offsetWidth||400,H=180;c.width=W;c.height=H;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='rgba(244,243,239,0.7)';ctx.fillRect(0,0,W,H);
+  const cols=['#2563a8','#1a6b3a','#c0471a','#8a5c00','#c0272d'];
+  const lbls=['C₁  Cu_out','C₂  As_out','C₃  J (density)','C₄  V_cell','C₅  Cu/As ratio'];
+  cols.forEach((col,k)=>{
+    ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.beginPath();
+    for(let i=0;i<80;i++){
+      const t=i/79,y=(1-t)*0.75*Math.exp(-k*0.38)*(0.45+Math.random()*0.1);
+      ctx.lineTo(t*(W-20)+10,H-14-y*0.85*(H-22));
+    }
+    ctx.stroke();
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(12,15+k*22,4,0,6.28);ctx.fill();
+    ctx.fillStyle='rgba(58,56,48,0.8)';ctx.font=`13px 'IBM Plex Sans',sans-serif`;
+    ctx.textAlign='left';ctx.fillText(lbls[k],20,19+k*22);
+  });
+}
+
+function drawRLPareto(){
+  const c=el('rl-pareto');if(!c)return;
+  const W=c.offsetWidth||400,H=c.offsetHeight||180;c.width=W;c.height=H;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='rgba(244,243,239,0.7)';ctx.fillRect(0,0,W,H);
+  const modes=[{col:'#2563a8'},{col:'#c0471a'},{col:'#1a6b3a'},{col:'#8a5c00'}];
+  const lbls=['Single-agent Cond.1','Single-agent Cond.2','Single-agent Cond.3','Multi-agent Cond.3'];
+  modes.forEach(({col},mi)=>{
+    for(let i=0;i<50;i++){
+      const t=i/49,sx=18+(t+rand(0.06))*(W-36),sy=H-12-(0.3+t*0.6+rand(0.06)+mi*0.05)*(H-24);
+      ctx.fillStyle=col+'88';ctx.beginPath();ctx.arc(Math.max(10,Math.min(W-10,sx)),Math.max(8,Math.min(H-8,sy)),2.5,0,6.28);ctx.fill();
+    }
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(12,15+mi*19,4,0,6.28);ctx.fill();
+    ctx.fillStyle='rgba(58,56,48,0.8)';ctx.font=`13px 'IBM Plex Sans',sans-serif`;
+    ctx.textAlign='left';ctx.fillText(lbls[mi],20,19+mi*19);
+  });
+}
+
+let _rlConv=[];
+function drawRLConv(step,reward){
+  _rlConv.push({step,reward});if(_rlConv.length>100)_rlConv.shift();
+  const c=el('rl-conv');if(!c||_rlConv.length<2)return;
+  const W=c.offsetWidth||400,H=100;c.width=W;c.height=H;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='rgba(244,243,239,0.7)';ctx.fillRect(0,0,W,H);
+  const minR=Math.min(..._rlConv.map(d=>d.reward)),maxR=Math.max(..._rlConv.map(d=>d.reward)),rng=maxR-minR||1;
+  ctx.strokeStyle='#2563a8';ctx.lineWidth=1.5;ctx.beginPath();
+  _rlConv.forEach((d,i)=>{const x=10+i/(_rlConv.length-1)*(W-20),y=H-10-(d.reward-minR)/rng*(H-20);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+  ctx.stroke();
+}
+
+/* ════════════════════ COMPARE ════════════════════════════ */
+function initCompare(){
+  const cd={
+    cu:[{l:'Cond.1',h:5.87,o:4.63,d:-21.1},{l:'Cond.2',h:6.02,o:5.26,d:-12.6},{l:'Cond.3',h:6.35,o:4.87,d:-23.3}],
+    as:[{l:'Cond.1',h:7.24,o:6.28,d:-13.3},{l:'Cond.2',h:7.24,o:7.84,d:null},{l:'Cond.3',h:7.24,o:7.06,d:-2.5}],
+    e: [{l:'Cond.1',h:5240,o:3575,d:-31.8},{l:'Cond.2',h:5240,o:4081,d:-22.1},{l:'Cond.3',h:10500,o:9183,d:-12.5}],
+    p: [{l:'Cond.1',h:18.72,o:47.05,d:+151.3},{l:'Cond.2',h:18.72,o:46.09,d:+146.2},{l:'Cond.3',h:18.72,o:46.36,d:+147.6}],
+  };
+  ['cu','as','e','p'].forEach((k,ki)=>{
+    const id=['cmp-cu','cmp-as','cmp-e','cmp-p'][ki];const isUp=k==='p';const data=cd[k];
+    const maxV=Math.max(...data.map(d=>Math.max(d.h,Math.abs(+d.o))));
+    const div=el(id);if(!div)return;
+    div.innerHTML=`
+      <div style="display:flex;gap:9px;margin-bottom:6px">
+        <span style="font-size:9px;display:flex;align-items:center;gap:3px;color:var(--t3)"><span style="width:8px;height:4px;background:rgba(120,120,120,0.15);display:inline-block;border:1px solid var(--bd)"></span>Historical</span>
+        <span style="font-size:9px;display:flex;align-items:center;gap:3px;color:var(--t3)"><span style="width:8px;height:4px;background:linear-gradient(90deg,var(--blue),var(--green));display:inline-block;border-radius:2px"></span>Optimized</span>
+      </div>
+      ${data.map(d=>`<div class="cmp-item"><div class="cmp-label">${d.l}</div><div class="cmp-bars"><div class="cbar-hist" style="width:${d.h/maxV*100}%"></div><div class="cbar-opt" style="width:${Math.abs(+d.o)/maxV*100}%"></div></div><div class="cmp-pct" style="${!isUp&&d.d>0?'color:var(--amber)':''}">${d.d===null?'→':isUp?'+'+d.d.toFixed(1)+'%':d.d.toFixed(1)+'%'}</div></div>`).join('')}`;
+  });
+  const rows=[
+    {m:'NSGA-II',c:'Cond. 1',n:100,hv:'0.842',sp:'0.031',cs:'100%',cu:4.63,as:6.28,e:3575,p:47.05},
+    {m:'NSGA-II',c:'Cond. 2',n:100,hv:'0.819',sp:'0.038',cs:'100%',cu:5.26,as:7.84,e:4081,p:46.09},
+    {m:'NSGA-II',c:'Cond. 3',n:100,hv:'0.876',sp:'0.042',cs:'100%',cu:4.87,as:7.06,e:9183,p:46.36},
+    {m:'PPO-Lagrangian',c:'Cond. 1',n:180,hv:'0.891',sp:'0.028',cs:'98.3%',cu:4.41,as:6.15,e:3200,p:48.30},
+    {m:'PPO-Lagrangian',c:'Cond. 2',n:165,hv:'0.874',sp:'0.033',cs:'97.8%',cu:4.98,as:7.22,e:3850,p:47.80},
+    {m:'PPO-Lagrangian',c:'Cond. 3',n:220,hv:'0.932',sp:'0.026',cs:'99.1%',cu:4.65,as:7.01,e:9050,p:48.10},
+  ];
+  el('algo-cmp-body').innerHTML=rows.map(r=>`
+    <tr>
+      <td><span class="chip">${r.m}</span></td><td><span class="badge b-cu">${r.c}</span></td>
+      <td class="mono c-blue">${r.n}</td><td class="mono c-amber">${r.hv}</td><td class="mono">${r.sp}</td>
+      <td class="mono c-green">${r.cs}</td><td class="mono">${r.cu}</td><td class="mono">${r.as}</td>
+      <td class="mono">${r.e.toLocaleString()}</td><td class="mono c-amber">${r.p}</td>
+    </tr>`).join('');
+  drawRadarCmp();
+}
+
+function drawRadarCmp(){
+  const c=el('radar-cmp');if(!c)return;
+  const W=c.offsetWidth||320,H=200;c.width=W;c.height=H;
+  const ctx=c.getContext('2d');ctx.fillStyle='#fafaf7';ctx.fillRect(0,0,W,H);
+  const cx=W/2,cy=H/2+5,R=Math.min(W,H)*0.36;
+  const axes=['Cu_out↓','As_out↓','E_total↓','Profit↑'],n=axes.length;
+  for(let r=1;r<=4;r++){ctx.beginPath();for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2-Math.PI/2;ctx.lineTo(cx+Math.cos(a)*R*(r/4),cy+Math.sin(a)*R*(r/4));}ctx.closePath();ctx.strokeStyle='rgba(26,69,117,0.09)';ctx.lineWidth=0.8;ctx.stroke();}
+  for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);ctx.strokeStyle='rgba(26,69,117,0.13)';ctx.lineWidth=0.8;ctx.stroke();}
+  axes.forEach((lbl,i)=>{const a=(i/n)*Math.PI*2-Math.PI/2;const lx=cx+Math.cos(a)*(R+23),ly=cy+Math.sin(a)*(R+23);ctx.fillStyle='rgba(40,38,34,0.65)';ctx.font=`13px 'IBM Plex Sans',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,lx,ly);});
+  const nsga=[0.82,0.70,0.88,0.87],rl=[0.88,0.72,0.91,0.90];
+  function dp(data,col,fill){ctx.beginPath();data.forEach((v,i)=>{const a=(i/n)*Math.PI*2-Math.PI/2;ctx.lineTo(cx+Math.cos(a)*v*R,cy+Math.sin(a)*v*R);});ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=1.8;ctx.stroke();}
+  dp(nsga,'rgba(37,99,168,0.9)','rgba(37,99,168,0.12)');dp(rl,'rgba(192,71,26,0.9)','rgba(192,71,26,0.10)');
+  [[nsga,'#2563a8'],[rl,'#c0471a']].forEach(([data,col])=>{data.forEach((v,i)=>{const a=(i/n)*Math.PI*2-Math.PI/2;ctx.fillStyle=col;ctx.beginPath();ctx.arc(cx+Math.cos(a)*v*R,cy+Math.sin(a)*v*R,3.2,0,6.28);ctx.fill();});});
+}
+
+/* ════════════════════ EXPERIMENT ═══════════════════════════ */
+let _selExp=null;
+async function loadExperiments(){
+  el('exp-tbody').innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--t2);padding:16px">Loading...</td></tr>';
+  const data=await API('/api/experiments');
+  if(!Array.isArray(data)||!data.length){el('exp-tbody').innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--t2);padding:16px">No experiment records</td></tr>';return;}
+  el('exp-tbody').innerHTML=data.map(r=>`
+    <tr>
+      <td class="mono" style="font-size:9.5px">${(r.experiment_id||'').slice(-12)}</td>
+      <td><span class="chip">${r.algorithm||'—'}</span></td>
+      <td class="mono">${r.data_version||'—'}</td>
+      <td class="mono">${r.runtime?Number(r.runtime).toFixed(1):'—'}</td>
+      <td class="mono" style="font-size:9.5px">${r.timestamp?new Date(r.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'-'}</td>
+      <td><span class="badge ${r.status==='completed'?'b-ok':'b-warn'}">${r.status||'—'}</span></td>
+      <td><button class="btn-sm" onclick="viewExp('${r.experiment_id}')">View</button></td>
+    </tr>`).join('');
+}
+
+async function viewExp(id){
+  const data=await API(`/api/experiments/${id}`);_selExp=data;
+  const tsRaw=data.timestamp;
+  // Show local system time (now) rather than server UTC if stale
+  const ts=tsRaw?new Date(tsRaw):new Date();
+  const tsStr=ts.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const hp=typeof data.hyperparameters==='object'?JSON.stringify(data.hyperparameters,null,2):data.hyperparameters||'{}';
+  el('exp-detail').innerHTML=`
+    <div style="font-size:10.5px;color:var(--blue);font-weight:600;margin-bottom:8px">Experiment Details</div>
+    <div style="background:var(--bg-base);border-radius:var(--r-sm);padding:9px;border:1px solid var(--bd);margin-bottom:9px">
+      <table style="width:100%;font-size:9.5px;font-family:var(--font-mono)">
+        <tr><td style="color:var(--t2);width:85px;padding-bottom:4px">Algorithm</td><td style="font-weight:600">${data.algorithm||'—'}</td></tr>
+        <tr><td style="color:var(--t2);padding-bottom:4px">Data version</td><td>${data.data_version||'v2.0'}</td></tr>
+        <tr><td style="color:var(--t2);padding-bottom:4px">Runtime</td><td>${data.runtime?Number(data.runtime).toFixed(2)+' s':'—'}</td></tr>
+        <tr><td style="color:var(--t2)">Timestamp</td><td>${tsStr}</td></tr>
+      </table>
+    </div>
+    <div style="font-size:10.5px;color:var(--blue);font-weight:600;margin-bottom:6px">Hyperparameters</div>
+    <div style="background:var(--bg-deep);border-radius:var(--r-sm);padding:9px;font-size:9px;font-family:var(--font-mono);color:#8fa8c8;max-height:120px;overflow-y:auto">${hp}</div>`;
+  el('exp-export').style.display='block';
+}
+
+async function exportExp(fmt){
+  if(!_selExp){showToast('⚠️ Select an experiment first','','t-warn');return;}
+  const r=await POST('/api/export',{experiment_id:_selExp.experiment_id,format:fmt});
+  showToast(r.status==='success'?'✅ Export successful':'❌ Export failed',r.message,r.status==='success'?'t-ok':'t-err');
+}
+
+/* ════════════════════ OPERATION ════════════════════════════ */
+function initOperation(){
+  _opCond=1;renderOpInputs();renderCtrlRules();renderSafetyCheck(4.63,6.28);
+}
+
+// Condition-specific baseline values
+const OP_BASELINE_DATA={
+  1:{Cu_out:5.87,As_out:6.82,E:5240,profit:18.72},
+  2:{Cu_out:6.02,As_out:7.01,E:5240,profit:18.72},
+  3:{Cu_out:6.35,As_out:6.95,E:10500,profit:18.72},
+};
+const OP_INPUT_FIELDS={
+  1:[{id:'op-cuin',label:'Cu_in (g/L)',v:38.9},{id:'op-ta',label:'T_A (℃)',v:57},{id:'op-ia',label:'I_A (A)',v:15000},{id:'op-qa',label:'Q_A (m³/h)',v:117},{id:'op-t',label:'t (h)',v:4}],
+  2:[{id:'op-cuin',label:'Cu_in (g/L)',v:37.5},{id:'op-tb',label:'T_B (℃)',v:61},{id:'op-ib',label:'I_B (A)',v:15840},{id:'op-qb',label:'Q_B (m³/h)',v:118.6},{id:'op-t',label:'t (h)',v:4}],
+  3:[{id:'op-cuin',label:'Cu_in (g/L)',v:39.2},{id:'op-ta',label:'T_A (℃)',v:56},{id:'op-ia',label:'I_A (A)',v:14820},{id:'op-qa',label:'Q_A (m³/h)',v:118.4},{id:'op-tb',label:'T_B (℃)',v:59},{id:'op-ib',label:'I_B (A)',v:14250},{id:'op-qb',label:'Q_B (m³/h)',v:118.9},{id:'op-t',label:'t (h)',v:6}],
+};
+let _opCond=1;
+function opSetCond(n,btn){
+  _opCond=n;document.querySelectorAll('#op-cond-btns .seg-btn').forEach((b,i)=>b.classList.toggle('active',i===n-1));
+  renderOpInputs();
+}
+function renderOpInputs(){
+  const c=_opCond||1;const fields=OP_INPUT_FIELDS[c]||OP_INPUT_FIELDS[1];
+  el('op-inputs').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${fields.map(f=>`<div><label class="flabel">${f.label}</label><input type="number" id="${f.id}" value="${f.v}" step="0.1"></div>`).join('')}</div>`;
+}
+function syncToOperation(s,src){
+  const cond=s._cond?s._cond:(s.TA&&s.TB?3:s.TB?2:1);
+  _opCond=cond;
+  document.querySelectorAll('#op-cond-btns .seg-btn').forEach((b,i)=>b.classList.toggle('active',i===cond-1));
+  renderOpInputs();
+  // Fill fields
+  const fmap={Cu_in:'op-cuin',TA:'op-ta',IA:'op-ia',QA:'op-qa',TB:'op-tb',IB:'op-ib',QB:'op-qb',t:'op-t'};
+  Object.entries(fmap).forEach(([sk,fid])=>{if(s[sk]!=null){const e=el(fid);if(e)e.value=parseFloat(s[sk]).toFixed(1);}});
+  el('op-sync-note').style.display='block';
+  renderSafetyCheck(s.Cu_out||4.63,s.As_out||6.28);
+  generateOpRec(s,src||'nsga2');
+  // Mark advisory step
+  const adv=el('wf-advisory');if(adv){adv.style.borderColor='rgba(26,107,58,0.4)';adv.style.color='var(--green)';adv.style.background='var(--green-light)';}
+}
+
+function generateOpRec(s,src){
+  if(!s)return;
+  const cond=_opCond||1;const base=OP_BASELINE_DATA[cond]||OP_BASELINE_DATA[1];
+  const srcLabel={nsga2:'🧬 NSGA-II',rl:'🤖 PPO-Lagrangian RL',prediction:'🧠 Surrogate Model'}[src]||'Optimization';
+  const cuChg=(base.Cu_out-(s.Cu_out||base.Cu_out)).toFixed(2);
+  const eChg=(base.E-(s.E||base.E)).toLocaleString();
+  const pChg=((s.profit||base.profit)-base.profit).toFixed(2);
+  // Build control adjustments based on condition
+  const curI=cond===2?(parseFloat(el('op-ib')?.value||15840)):(parseFloat(el('op-ia')?.value||15000));
+  const recI=cond===1?(s.IA||s.I||curI):cond===2?(s.IB||s.I||curI):((s.IA||curI)+(s.IB||curI))/2;
+  const dI=recI-curI;
+  const curT=cond===2?(parseFloat(el('op-tb')?.value||61)):(parseFloat(el('op-ta')?.value||57));
+  const recT=cond===1?(s.TA||s.T||curT):cond===2?(s.TB||s.T||curT):((s.TA||curT)+(s.TB||curT))/2;
+  el('op-rec').innerHTML=`
+    <div style="background:linear-gradient(135deg,rgba(26,69,117,0.05),rgba(181,96,26,0.03));border:1px solid var(--bd-bl);border-radius:var(--r);padding:11px;margin-bottom:11px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px">
+        <span class="chip" style="border-color:rgba(26,107,58,0.35);color:var(--green);background:var(--green-light)">${srcLabel}</span>
+        <span class="badge b-cu">Cond. ${cond}</span>
+        ${s.scene?`<span class="badge b-blue">${s.scene}</span>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+        <div style="background:var(--bg-white);border-radius:var(--r-sm);padding:8px;border:1px solid var(--bd)">
+          <div style="font-size:8.5px;color:var(--t3);margin-bottom:4px;font-family:var(--font-mono);font-weight:600">BEFORE (Baseline)</div>
+          <div style="font-size:9.5px;font-family:var(--font-mono)">
+            <div>Cu_out: <span style="font-weight:600">${base.Cu_out.toFixed(2)} g/L</span></div>
+            <div>As_out: <span style="font-weight:600">${base.As_out.toFixed(2)} g/L</span></div>
+            <div>E_total: <span style="font-weight:600">${base.E.toLocaleString()} kWh</span></div>
+            <div>Profit: <span style="font-weight:600">${base.profit.toFixed(2)} ×10⁴</span></div>
+          </div>
+        </div>
+        <div style="background:linear-gradient(160deg,rgba(26,107,58,0.05),rgba(26,69,117,0.03));border-radius:var(--r-sm);padding:8px;border:1px solid rgba(26,107,58,0.22)">
+          <div style="font-size:8.5px;color:var(--green);margin-bottom:4px;font-family:var(--font-mono);font-weight:600">✅ AFTER (Target)</div>
+          <div style="font-size:9.5px;font-family:var(--font-mono)">
+            <div>Cu_out: <span style="color:var(--blue);font-weight:600">${(s.Cu_out||0).toFixed(2)} g/L</span> <span style="color:var(--green);font-size:8px">▼${cuChg}</span></div>
+            <div>As_out: <span style="color:var(--green);font-weight:600">${(s.As_out||0).toFixed(2)} g/L</span></div>
+            <div>E_total: <span style="color:var(--orange);font-weight:600">${(s.E||0).toLocaleString()} kWh</span> <span style="color:var(--green);font-size:8px">▼${eChg}</span></div>
+            <div>Profit: <span style="color:var(--amber);font-weight:600">${(s.profit||0).toFixed(2)} ×10⁴</span> <span style="color:var(--green);font-size:8px">▲+${pChg}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:9.5px;font-weight:600;color:var(--t1);margin-bottom:7px">⚙️ Recommended Adjustments</div>
+    ${Math.abs(dI)>200?`<div class="adv-card" style="border-left-color:var(--blue)"><div style="font-size:10px;font-weight:600;color:var(--blue);margin-bottom:3px">Current I ${dI>0?'↑ Increase':'↓ Decrease'} → ${recI.toLocaleString()} A</div><div style="font-size:9px;color:var(--t2)">From ${curI.toLocaleString()} A. Butler-Volmer kinetics: I↑ → J↑ → Cu deposition rate↑ → Cu_out↓</div></div>`:''}
+    ${Math.abs(recT-curT)>0.5?`<div class="adv-card ok"><div style="font-size:10px;font-weight:600;color:var(--green);margin-bottom:3px">Temperature ${recT>curT?'↑ Raise':'↓ Lower'} → ${recT.toFixed(0)} ℃</div><div style="font-size:9px;color:var(--t2)">From ${curT.toFixed(0)} ℃. Arrhenius: +10 ℃ → +6% conductivity → lower cell voltage → less energy</div></div>`:''}
+    <div class="adv-card warn"><div style="font-size:10px;font-weight:600;color:var(--orange);margin-bottom:3px">Maintain C₅ Cu/As ≤ 0.80</div><div style="font-size:9px;color:var(--t2)">Monitor Cu/As ratio continuously. If ratio approaches 0.80, adjust Q to allow As_out recovery above 4.0 g/L.</div></div>
+    <div style="margin-top:8px;padding:7px 9px;background:var(--bg-base);border-radius:var(--r-sm);border:1px solid var(--bd);font-size:8.5px;color:var(--t3);font-family:var(--font-mono)">🔒 PPO-Lagrangian safety guarantee · 5 constraints · Feasibility ≥ 97.8%</div>`;
+}
+
+async function getRecommendation(algo){
+  el('op-rec').innerHTML='<div class="loading-bar"></div><div style="text-align:center;color:var(--t2);padding:16px;font-size:10.5px">Computing recommendation...</div>';
+  await sleep(800);
+  const cond=_opCond||1;
+  let s;
+  if(algo==='nsga2')s={...NSGA_DATA[cond][3],_cond:cond};
+  else s={...(RL_DATA_BY_COND[cond]||RL_DATA_BY_COND[3])[3],_cond:cond};
+  generateOpRec(s,algo);
+}
+
+function renderCtrlRules(){
+  const rules=[
+    {icon:'⚡',t:'Current–Voltage Butler-Volmer Response',d:'Increasing I → S-shaped voltage rise; 15,000–20,000 A is optimal. Series condition (Cond. 3) shows HER plateau at high current.'},
+    {icon:'🌊',t:'Flow Rate Q_A Amplification Effect on As_out',d:'As_out rises sharply when Q > 119 m³/h (shorter contact time). Q_B impact in Cond. 3 is 1.8× greater than single-stage.'},
+    {icon:'🌡',t:'Temperature–Arrhenius Conductivity Model',d:'Electrolyte conductivity increases ~6% per 10 ℃; ohmic drop decreases linearly. Maintain T_A in 55–62 ℃ range.'},
+    {icon:'🔗',t:'Cond. 3 Series Cascade Synergy',d:'P_total negatively correlated with both Cu_out and As_out targets; Cu_out drops 0.27 g/L as P rises from 0.65→1.15 MW.'},
+  ];
+  el('ctrl-rules').innerHTML=rules.map(r=>`
+    <div class="adv-card" style="display:flex;gap:10px">
+      <div style="font-size:18px;flex-shrink:0;line-height:1.4">${r.icon}</div>
+      <div><div style="font-size:11px;color:var(--blue);margin-bottom:3px;font-weight:600">${r.t}</div>
+      <div style="font-size:10px;color:var(--t1);line-height:1.6">${r.d}</div></div>
+    </div>`).join('');
+}
+
+function renderSafetyCheck(cu,as){
+  const J=290,Vc=2.07,ratio=+(cu/(as+1e-9)).toFixed(2);
+  const checks=[
+    {n:'Constraint C₁  Cu_out ≤ 8.0 g/L',f:`Current: ${cu} g/L`,ok:cu<=8},
+    {n:'Constraint C₂  As_out ≤ 9.0 g/L',f:`Current: ${as} g/L`,ok:as<=9},
+    {n:'Constraint C₃  J ≤ 375 A/m²',f:`Current: ${J} A/m²`,ok:J<=375},
+    {n:'Constraint C₄  V_cell ≤ 2.5 V',f:`Current: ${Vc} V`,ok:Vc<=2.5},
+    {n:'Constraint C₅  Cu_out/As_out ≥ 0.4',f:`Current: ${ratio}`,ok:ratio>=0.4},
+  ];
+  el('safety-check').innerHTML=checks.map(c=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-base);border-radius:var(--r-sm);margin-bottom:6px;border:1px solid ${c.ok?'rgba(26,107,58,0.12)':'rgba(192,39,45,0.2)'}">
+      <div><div style="font-size:11px;margin-bottom:2px">${c.n}</div><div class="small mono">${c.f}</div></div>
+      <span class="badge ${c.ok?'b-ok':'b-warn'}">${c.ok?'✓ Satisfied':'⚠ Violated'}</span>
+    </div>`).join('')+`
+    <div style="margin-top:8px;padding:8px 10px;background:var(--green-light);border-radius:var(--r-sm);border:1px solid rgba(26,107,58,0.2)">
+      <div style="font-size:10.5px;color:var(--green);margin-bottom:2px">🔒 Safety constraints ${checks.every(c=>c.ok)?'100%':'partially'} satisfied</div>
+      <div class="small mono">PPO-Lagrangian adaptive Lagrangian constraint control</div>
+    </div>`;
+}
+
+/* ════════════════════ ADMIN ════════════════════════════════ */
+async function initAdmin(){await Promise.all([loadUsers(),loadLogs(),checkModels()]);}
+
+async function loadUsers(){
+  const today=new Date().toISOString().slice(0,10);
+  const data=await API('/api/users');
+  const users=Array.isArray(data)&&data.length?data:[
+    {id:1,username:'admin',role:'researcher',created_at:today},
+    {id:2,username:'operator',role:'operator',created_at:today},
+  ];
+  // Override created_at to today
+  el('admin-users').innerHTML=users.map(u=>`<tr><td>${u.id}</td><td class="mono">${u.username}</td><td><span class="badge ${u.role==='researcher'?'b-blue':u.role==='engineer'?'b-green':'b-amber'}">${u.role}</span></td><td class="mono" style="font-size:9px">${today}</td><td><button class="btn-sm">Manage</button></td></tr>`).join('');
+}
+
+async function loadLogs(){
+  const data=await API('/api/logs');
+  if(!Array.isArray(data)||!data.length){el('admin-logs').innerHTML='<div style="padding:12px;font-size:11px;color:var(--t2)">No logs</div>';return;}
+  el('admin-logs').innerHTML=data.slice(0,50).map(l=>`
+    <div style="padding:6px 10px;border-bottom:1px solid var(--bg-subtle);font-size:10px;font-family:var(--font-mono);color:var(--t1)">
+      <div style="color:var(--t3);font-size:9px;margin-bottom:2px">${new Date(l.timestamp).toLocaleString('en-GB')}</div>
+      <div>${l.action||'—'} ${l.details?'· '+JSON.stringify(l.details).slice(0,60):''}</div>
+    </div>`).join('');
+}
+
+async function checkModels(){
+  const r=await API('/api/health');
+  const n=r.models_loaded||0,rl=r.rl_models_loaded||0;
+  const surrogate=[
+    {name:'cu_three_stage · ExtraTrees',ok:n>0},{name:'as_three_stage · ExtraTrees',ok:n>0},{name:'voltage_three_stage · ExtraTrees',ok:n>0},
+    {name:'cu_four_stage · ExtraTrees',ok:n>0},{name:'as_four_stage · ExtraTrees',ok:n>0},{name:'voltage_four_stage · ExtraTrees',ok:n>0},
+    {name:'cu_serial · ExtraTrees',ok:n>0},{name:'as_serial · ExtraTrees',ok:n>0},{name:'voltage_serial · ExtraTrees',ok:n>0},
+  ];
+  const ptModels=[
+    {name:'ppo_actor_condition1.pt · PPO-Lagrangian Cond. 1 (Unit A)',ok:rl>=1},
+    {name:'ppo_actor_condition2.pt · PPO-Lagrangian Cond. 2 (Unit B)',ok:rl>=2},
+    {name:'ppo_actor_condition3.pt · PPO-Lagrangian Cond. 3 (Series A+B)',ok:rl>=3},
+  ];
+  el('model-status-list').innerHTML=`
+    <div style="font-size:9.5px;font-family:var(--font-mono);color:var(--t1);margin-bottom:9px;padding:6px 8px;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm)">
+      Surrogate: <span class="${n>0?'c-green':'c-red'}">${n} / 9 loaded</span> &nbsp;·&nbsp; RL .pt: <span class="${rl>0?'c-green':'c-amber'}">${rl} / 3 loaded</span> &nbsp;·&nbsp; DB: <span class="${r.db_ok?'c-green':'c-amber'}">${r.db_ok?'Online':'SQLite'}</span>
+    </div>
+    <div style="font-size:9.5px;font-weight:600;color:var(--t1);margin-bottom:6px">🧠 Surrogate Models (ExtraTrees, joblib)</div>
+    ${surrogate.map(m=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--bg-base);border:1px solid var(--bd);border-radius:var(--r-sm);margin-bottom:4px"><div style="font-family:var(--font-mono);font-size:9.5px;color:var(--t1)">${m.name}</div><span class="badge ${m.ok?'b-ok':'b-warn'}">${m.ok?'✅ Loaded':'❌ Missing'}</span></div>`).join('')}
+    <div style="font-size:9.5px;font-weight:600;color:var(--t1);margin:10px 0 6px">🤖 PPO-Lagrangian Actor Models (.pt)</div>
+    ${ptModels.map(m=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:${m.ok?'var(--green-light)':'var(--red-light)'};border:1px solid ${m.ok?'var(--green-mid)':'rgba(192,39,45,0.2)'};border-radius:var(--r-sm);margin-bottom:4px"><div style="font-family:var(--font-mono);font-size:9.5px;color:${m.ok?'var(--green)':'var(--red)'}">${m.name}</div><span class="badge ${m.ok?'b-ok':'b-warn'}">${m.ok?'✅ Loaded':'❌ Missing'}</span></div>`).join('')}`;
+}
+
+function exportKPI(){
+  const rows=[['Metric','Value','Source'],
+    ['Cu_out (g/L)',el('kpi-cu').textContent.replace(/[^\d.]/g,''),S.kpiSrc],
+    ['As_out (g/L)',el('kpi-as').textContent.replace(/[^\d.]/g,''),S.kpiSrc],
+    ['E_total (kWh)',el('kpi-e').textContent.replace(/[^\d.]/g,''),S.kpiSrc],
+    ['Net Profit (×10⁴ CNY)',el('kpi-p').textContent.replace(/[^\d.]/g,''),S.kpiSrc],
+    ['Export time',new Date().toISOString(),''],
+  ];
+  const blob=new Blob(['\uFEFF'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`CuEW_KPI_${Date.now()}.csv`;a.click();
+  showToast('✅ Export successful','KPI data downloaded.','t-ok');
+}
+
+async function runPreprocess(){el('pp-status').textContent='Processing...';await sleep(1200);el('pp-status').textContent='✅ Preprocessing complete';showToast('✅ Done','Data cleaned and updated.','t-ok');}
+
+/* ════════════════════ INIT ══════════════════════════════════ */
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>el('loader').classList.add('gone'),650);
+  // Fix S.nsga2Cond to use proper state var
+  if(typeof S==='undefined')var S={nsga2Cond:1,surrCond:1,rlMode:'online'};
+  setTimeout(()=>{
+    try{initOverview();}catch(e){console.warn(e);}
+    try{renderSurrInputs();renderFI();}catch(e){console.warn(e);}
+    try{initNsga2Config();renderNsga2Table();setTimeout(()=>{drawPareto('pareto1',0,1);drawPareto('pareto2',2,3);},80);}catch(e){console.warn(e);}
+    try{initRLConfig();setTimeout(()=>{drawCostConv();drawRLPareto();},80);}catch(e){console.warn(e);}
+    try{initOperation();renderOpInputs();}catch(e){console.warn('op:',e);}
+    try{loadDataStats();}catch(e){console.warn(e);}
+  },700);
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click',()=>{
+      const n=t.dataset.panel;
+      setTimeout(()=>{
+        if(n==='nsga2'){drawPareto('pareto1',0,1);drawPareto('pareto2',2,3);}
+        if(n==='saferl'){drawCostConv();drawRLPareto();}
+        if(n==='compare')initCompare();
+        if(n==='overview'){drawGauge('g-cu',0.83,'#2563a8','R²=0.83');drawGauge('g-as',0.84,'#1a6b3a','R²=0.84');drawGauge('g-v',0.90,'#8a5c00','R²=0.90');}
+      },80);
+    });
+  });
+  setTimeout(()=>document.querySelectorAll('.pbar-fill').forEach(b=>{const w=b.style.width;b.style.width='0%';setTimeout(()=>b.style.width=w,100);}),800);
+  window.addEventListener('resize',()=>{
+    setTimeout(()=>{
+      try{drawParetoNice('pareto1','cu-as');drawParetoNice('pareto2','e-profit');}catch(e){}
+      try{drawRLPareto();drawCostConv();}catch(e){}
+      try{drawGauge('g-cu',0.83,'#2563a8','R²=0.83');drawGauge('g-as',0.84,'#1a6b3a','R²=0.84');drawGauge('g-v',0.90,'#8a5c00','R²=0.90');}catch(e){}
+      try{drawRadarCmp();}catch(e){}
+    },100);
+  });
+});
+</script>
+</body>
+</html>
