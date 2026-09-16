@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cu·EW Intelligent Optimization System v2.0</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,600;8..60,700&family=DM+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <style>
+[hidden]{display:none!important}
+#runtime-notice{font-size:16px;line-height:1.5;padding:12px 28px;background:#fff6df;color:#614600;border-bottom:1px solid #deca96}
+
 :root {
   --bg-base:#f4f3ef; --bg-paper:#fafaf7; --bg-white:#ffffff; --bg-subtle:#eeecea; --bg-deep:#1c1b18;
   --cu:#b5601a; --cu-light:#d4843a; --cu-pale:rgba(181,96,26,0.08); --cu-mid:rgba(181,96,26,0.20); --cu-glow:rgba(181,96,26,0.35);
@@ -296,6 +296,99 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
 @media(max-width:1400px){.logo-sub{display:none}.hdr-pill{font-size:12px}#nav{padding:0 8px}.tab{padding:0 6px;font-size:13.5px;gap:3px}#main{padding-left:22px;padding-right:22px}}
 @media(max-width:1200px){.g4{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){#header{height:auto;min-height:78px;padding:11px 16px;gap:10px;flex-wrap:wrap}#nav{top:0;padding:0 14px}.logo-title{font-size:19px}#main{padding:16px}.g2,.g3,.g4{grid-template-columns:1fr}}
+
+/* OVERVIEW TYPOGRAPHY — at least 2× the existing rendered type sizes.
+   Keep the actual text large at normal browser zoom; let the layout reflow. */
+body:has(#panel-overview.active){font-size:34px;line-height:1.35;--t3:#6a6860}
+body:has(#panel-overview.active) #header{
+  position:relative;height:auto;min-height:112px;top:auto;
+  padding:20px 28px;gap:20px 28px;flex-wrap:wrap;
+}
+body:has(#panel-overview.active) .logo{min-width:0;gap:18px}
+body:has(#panel-overview.active) .logo>div:last-child{min-width:0}
+body:has(#panel-overview.active) .logo-hex{width:64px;height:64px}
+body:has(#panel-overview.active) .logo-cu{font-size:30px}
+body:has(#panel-overview.active) .logo-title{font-size:42px;line-height:1.2;overflow-wrap:anywhere}
+body:has(#panel-overview.active) .logo-sub{display:block;font-size:23px;line-height:1.4;letter-spacing:.7px}
+body:has(#panel-overview.active) .hdr-right{gap:10px;min-width:0}
+body:has(#panel-overview.active) .hdr-pill{font-size:25px;gap:9px;padding:9px 12px;white-space:normal}
+body:has(#panel-overview.active) .sdot{width:10px;height:10px}
+body:has(#panel-overview.active) .btn-hdr{font-size:26px;padding:10px 14px}
+body:has(#panel-overview.active) #clock{font-size:28px;padding:9px 12px}
+body:has(#panel-overview.active) #nav{position:relative;top:auto;flex-wrap:wrap;padding:0 18px}
+body:has(#panel-overview.active) .tab{height:auto;min-height:62px;font-size:28px;padding:13px 16px;gap:9px}
+body:has(#panel-overview.active) #main{padding:24px 28px 42px;overflow:visible}
+#panel-overview{font-size:34px;line-height:1.35;--t3:#6a6860}
+#panel-overview .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+#panel-overview .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+#panel-overview .g21{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+#panel-overview .g3,#panel-overview .g4,#panel-overview .g21{gap:20px}
+#panel-overview .mb14{margin-bottom:20px}
+#panel-overview .card{min-width:0;padding:24px}
+#panel-overview .card-hd{font-size:29px;line-height:1.3;gap:10px;margin-bottom:18px;padding-bottom:14px}
+#panel-overview .cdot{width:12px;height:12px}
+#panel-overview .kpi .card-hd{min-height:2.6em;align-items:center}
+#panel-overview .kpi-label{font-size:26px;line-height:1.35;min-height:2.7em;margin-bottom:12px}
+#panel-overview .kpi-val{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font-size:76px;line-height:1.05}
+#panel-overview .kpi-unit{font-size:27px;line-height:1.3;margin-left:0}
+#panel-overview .kpi-delta{font-size:26px;line-height:1.35;padding:5px 10px}
+#panel-overview .btn-sm{font-size:26px;line-height:1.35;padding:10px 14px;white-space:normal}
+#panel-overview #src-badge{font-size:25px;line-height:1.35;padding:7px 10px}
+#panel-overview .overview-workflow{gap:14px!important;margin-bottom:20px!important}
+#panel-overview .overview-actions{flex-wrap:wrap;gap:10px!important;min-width:0}
+#panel-overview .seg{display:flex;flex-wrap:wrap;gap:4px}
+#panel-overview .seg-btn{font-size:27px;padding:10px 13px;white-space:normal;text-align:center}
+#panel-overview .flow{gap:4px;padding:14px 0}
+#panel-overview .flow-node{width:154px;max-width:100%;padding:14px 10px;font-size:26px;line-height:1.3}
+#panel-overview .flow-icon{font-size:42px}
+#panel-overview .flow-arr{font-size:36px;padding:0 4px}
+#panel-overview #ov-params{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important}
+#panel-overview .stat-box{min-width:0;padding:14px 10px}
+#panel-overview .stat-lbl{font-size:25px;line-height:1.35;overflow-wrap:anywhere}
+#panel-overview #ov-params .stat-box>div:last-child{font-size:30px!important;line-height:1.3;overflow-wrap:anywhere}
+#panel-overview .cst-item{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:10px 12px;padding:14px;margin-bottom:12px}
+#panel-overview .cst-dot{width:10px;height:10px}
+#panel-overview .cst-name,#panel-overview .cst-val{font-size:27px;line-height:1.35;min-width:0}
+#panel-overview .cst-val{white-space:nowrap}
+#panel-overview .cst-bar{grid-column:2/-1;grid-row:2;width:100%}
+#panel-overview .pbar{height:8px}
+#panel-overview .stat-num{font-size:56px;line-height:1.1}
+#panel-overview .chip,#panel-overview .badge{font-size:25px;line-height:1.35}
+#panel-overview .gauge-wrap{padding:8px 0}
+#panel-overview .gauge-wrap canvas{display:block;width:320px;max-width:100%;height:190px}
+#panel-overview .tbl{font-size:27px}
+#panel-overview .tbl th,#panel-overview .tbl td{font-size:26px;line-height:1.35;padding:13px 12px}
+#panel-overview .overview-ranking-scroll{overflow-x:auto}
+#panel-overview .tbl{min-width:1040px}
+#panel-overview [style*="font-size:8px"],#panel-overview [style*="font-size:8.5px"]{font-size:25px!important}
+#panel-overview [style*="font-size:9px"],#panel-overview [style*="font-size:9.5px"]{font-size:26px!important}
+#panel-overview [style*="font-size:10px"],#panel-overview [style*="font-size:10.5px"]{font-size:27px!important}
+#panel-overview [style*="font-size:11px"],#panel-overview [style*="font-size:11.5px"]{font-size:28px!important}
+#panel-overview [style*="font-size:16px"]{font-size:32px!important}
+@media(max-width:1600px){
+  #panel-overview .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #panel-overview .g21{grid-template-columns:minmax(0,1fr)}
+  #panel-overview .overview-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #panel-overview .overview-metrics>.stat-box:last-child{grid-column:1/-1}
+}
+@media(max-width:1200px){#panel-overview .g3{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:760px){
+  body:has(#panel-overview.active) #header{padding:18px 16px}
+  body:has(#panel-overview.active) .logo{align-items:flex-start}
+  body:has(#panel-overview.active) .logo-sub{font-size:23px;letter-spacing:0;overflow-wrap:anywhere}
+  body:has(#panel-overview.active) #nav{flex-wrap:nowrap;overflow-x:auto;padding:0 8px}
+  body:has(#panel-overview.active) .tab{flex-shrink:0}
+  body:has(#panel-overview.active) #main{padding:18px 12px 32px}
+  #panel-overview .g4{grid-template-columns:minmax(0,1fr)}
+  #panel-overview .card{padding:18px}
+  #panel-overview .kpi .card-hd,#panel-overview .kpi-label{min-height:0}
+  #panel-overview #ov-params{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #panel-overview .cst-item{grid-template-columns:10px minmax(0,1fr);padding:12px}
+  #panel-overview .cst-val{grid-column:2;text-align:left}
+  #panel-overview .cst-bar{grid-column:2;grid-row:3}
+  #panel-overview .flow{flex-direction:column}
+  #panel-overview .flow-arr{transform:rotate(90deg)}
+}
 </style>
 </head>
 <body>
@@ -330,7 +423,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
   </div>
   <div class="hdr-right">
     <div class="hdr-pill"><div class="sdot dot-ld" id="hd-model-dot"></div><span style="color:var(--t2)">Surrogate</span><span id="hd-model-txt">Loading</span></div>
-    <div class="hdr-pill"><div class="sdot dot-off" id="hd-ws-dot"></div><span style="color:var(--t2)">WebSocket</span><span id="hd-ws-txt">Connecting</span></div>
+    <div class="hdr-pill"><div class="sdot dot-off" id="hd-ws-dot"></div><span style="color:var(--t2)">Transport</span><span id="hd-ws-txt">Connecting</span></div>
     <div class="hdr-pill"><div class="sdot dot-ok"></div><span style="color:var(--t2)">Data</span><span>Ready</span></div>
     <button class="btn-hdr" onclick="exportKPI()">📊 Export CSV</button>
     <div id="clock">--:--:--</div>
@@ -349,6 +442,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
   <button class="tab" data-panel="admin">🔐 System Admin</button>
 </nav>
 
+<div id="runtime-notice" role="status">Connecting to the local runtime. Research assets remain local.</div>
 <main id="main">
 
 <!-- ══ OVERVIEW ══ -->
@@ -379,7 +473,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
       <div class="kpi-delta delta-up mt8" id="kpi-p-delta">▲ 139.30% Revenue Gain</div>
     </div>
   </div>
-  <div style="margin-bottom:11px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px">
+  <div class="overview-workflow" style="margin-bottom:11px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px">
     <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
       <div style="cursor:pointer;padding:3px 9px;border:1px solid var(--bd-cu);border-radius:3px;font-size:9.5px;font-family:var(--font-mono);color:var(--cu);background:var(--cu-pale)">📊 Initial</div>
       <span style="color:var(--t3);font-size:11px">→</span>
@@ -391,7 +485,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
       <span style="color:var(--t3);font-size:11px">→</span>
       <div id="wf-advisory" onclick="gotoTab('operation')" style="cursor:pointer;padding:3px 9px;border:1px solid var(--bd);border-radius:3px;font-size:9.5px;font-family:var(--font-mono);color:var(--t3)">⚙️ Advisory</div>
     </div>
-  <div style="display:flex;align-items:center;gap:5px">
+  <div class="overview-actions" style="display:flex;align-items:center;gap:5px">
     <span id="src-badge">📌 Source: System Initial</span>
     <button class="btn-sm" onclick="gotoTab('surrogate')">→ Run Prediction to Update</button>
     <button class="btn-sm" onclick="gotoTab('surrogate')">→ Predict</button>
@@ -418,7 +512,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
       <div class="card-hd"><div class="cdot blue"></div><i>Cu</i><sub>out</sub> Prediction Accuracy</div>
       <div class="gauge-wrap"><canvas id="g-cu" width="160" height="95"></canvas></div>
       <div class="tc mt8"><span class="chip">ExtraTrees · Cond. 1 / 2 / 3</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+      <div class="overview-metrics" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
         <div class="stat-box"><div class="stat-lbl">R²</div><div class="stat-num c-blue bold">0.83</div></div>
         <div class="stat-box"><div class="stat-lbl">RMSE</div><div class="stat-num c-blue bold">0.57</div></div>
         <div class="stat-box"><div class="stat-lbl">MAPE</div><div class="stat-num c-blue bold">7.2%</div></div>
@@ -428,7 +522,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
       <div class="card-hd"><div class="cdot green"></div><i>As</i><sub>out</sub> Prediction Accuracy</div>
       <div class="gauge-wrap"><canvas id="g-as" width="160" height="95"></canvas></div>
       <div class="tc mt8"><span class="chip">ExtraTrees · Cond. 1 / 2 / 3</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+      <div class="overview-metrics" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
         <div class="stat-box"><div class="stat-lbl">R²</div><div class="stat-num c-green bold">0.84</div></div>
         <div class="stat-box"><div class="stat-lbl">RMSE</div><div class="stat-num c-green bold">0.60</div></div>
         <div class="stat-box"><div class="stat-lbl">MAPE</div><div class="stat-num c-green bold">7.3%</div></div>
@@ -438,7 +532,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
       <div class="card-hd"><div class="cdot amber"></div>Voltage Prediction Accuracy</div>
       <div class="gauge-wrap"><canvas id="g-v" width="160" height="95"></canvas></div>
       <div class="tc mt8"><span class="chip">ExtraTrees · Cond. 1 / 2 / 3</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+      <div class="overview-metrics" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
         <div class="stat-box"><div class="stat-lbl">R²</div><div class="stat-num c-amber bold">0.90</div></div>
         <div class="stat-box"><div class="stat-lbl">RMSE</div><div class="stat-num c-amber bold">0.81</div></div>
         <div class="stat-box"><div class="stat-lbl">MAPE</div><div class="stat-num c-amber bold">1.7%</div></div>
@@ -447,10 +541,12 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
   </div>
   <div class="card">
     <div class="card-hd"><div class="cdot amber"></div>TOPSIS Multi-criteria Model Ranking (Top 5)</div>
+    <div class="overview-ranking-scroll">
     <table class="tbl">
       <thead><tr><th>Rank</th><th>Model</th><th><i>Cu</i><sub>out</sub> TOPSIS</th><th><i>As</i><sub>out</sub> TOPSIS</th><th>Voltage TOPSIS</th><th>Composite Score</th><th>Status</th></tr></thead>
       <tbody id="topsis-body"></tbody>
     </table>
+    </div>
   </div>
 </div>
 
@@ -481,7 +577,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
           <div><label class="flabel">Temperature <i>T</i><sub>A</sub> (℃)</label><input type="number" id="m-temp" value="57" min="40" max="65" step="1"></div>
           <div><label class="flabel">Current intensity <i>I</i><sub>A</sub> (A)</label><input type="number" id="m-current" value="15000" min="8000" max="27000" step="500"></div>
           <div><label class="flabel">Flow rate <i>Q</i><sub>A</sub> (m³/h)</label><input type="number" id="m-flow" value="117" min="111" max="123" step="0.5"></div>
-          <div><label class="flabel">Duration <i>t</i> (h)</label><input type="number" id="m-dur" value="4" min="2" max="12" step="0.5"></div>
+          <div><label class="flabel">Duration <i>t</i> (h)</label><input type="number" id="m-dur" value="4" min="2" max="8" step="0.5"></div>
           <div><label class="flabel">Operating condition</label>
             <select id="m-mode">
               <option value="three_stage">Condition 1 — Unit A (Three-stage)</option>
@@ -498,14 +594,14 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
       </div>
       <!-- Excel -->
       <div class="ipanel" id="import-panel-excel">
-        <div style="font-size:11px;color:var(--t2);margin-bottom:14px">Supports .xlsx, .xls, .csv. Column names are auto-mapped (e.g. Cu_in, T_A, I_A, Q_A, t, mode).</div>
+        <div style="font-size:11px;color:var(--t2);margin-bottom:14px">Supports .xlsx and .csv. Column names are auto-mapped (e.g. Cu_in, T_A, I_A, Q_A, t, mode).</div>
         <div style="padding:16px;background:var(--bg-base);border:1.5px dashed var(--bd-hi);border-radius:var(--r);margin-bottom:12px;text-align:center" id="drop-zone"
           ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
           ondragleave="this.style.borderColor='var(--bd-hi)'"
           ondrop="handleFileDrop(event)">
           <div style="font-size:28px;margin-bottom:8px">📄</div>
           <div style="font-size:11px;color:var(--t1);margin-bottom:8px">Drag & drop file here, or browse below</div>
-          <input type="file" id="file-upload" accept=".xlsx,.xls,.csv" style="max-width:260px;margin:0 auto">
+          <input type="file" id="file-upload" accept=".xlsx,.csv" style="max-width:260px;margin:0 auto">
         </div>
         <div style="font-size:10px;color:var(--t3);font-family:var(--font-mono);margin-bottom:12px">
           Recognised columns: Cu_in · T_A · T_B · I_A · I_B · Q_A · Q_B · t · V_A · V_B · P_A · P_B · P_total · mode
@@ -558,7 +654,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input type="checkbox" id="pp-miss" checked><label for="pp-miss" style="font-size:11px;cursor:pointer">Impute missing values (KNN, k=5)</label></div>
           <div style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="pp-norm"><label for="pp-norm" style="font-size:11px;cursor:pointer">Normalize features</label></div>
         </div>
-        <button class="btn-sm" style="width:100%" onclick="runPreprocess()">🧹 Run Preprocessing</button>
+        <button class="btn-sm" style="width:100%" onclick="runPreprocess()">Validate Stored Records</button>
         <div id="pp-status" style="margin-top:8px;font-size:10px;color:var(--t2);font-family:var(--font-mono)"></div>
       </div>
     </div>
@@ -616,8 +712,8 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
       <div id="surr-actions" style="display:none;margin-top:14px">
         <div class="divider"><div class="divider-txt">Next Steps</div><div class="divider-line"></div></div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          <button class="btn-sm" style="text-align:left;padding:8px 12px" onclick="openOptModal('nsga2')">🧬 NSGA-II Multi-objective — Offline Pareto front solving</button>
-          <button class="btn-sm" style="text-align:left;padding:8px 12px" onclick="openOptModal('rl')">🤖 Safe RL Online Optimization — PPO-Lagrangian policy</button>
+          <button class="btn-sm" style="text-align:left;padding:8px 12px" onclick="openComputedOptimization()">🧬 Configure and Run NSGA-II Optimization</button>
+          <button class="btn-sm" style="text-align:left;padding:8px 12px" id="local-policy-btn" onclick="inferLocalPolicy()">🤖 Evaluate Local PPO-Lagrangian Policy</button>
           <button class="btn-sm" style="text-align:left;padding:8px 12px;color:var(--green);border-color:rgba(26,107,58,0.3)" onclick="applySurrToOverview()">📊 Sync to Overview Dashboard</button>
         </div>
       </div>
@@ -636,7 +732,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
     <div class="card">
       <div class="card-hd"><div class="cdot"></div>NSGA-II Algorithm Configuration</div>
       <div class="seg mb10" id="nsga2-run-mode-btns" style="width:100%">
-        <button class="seg-btn active" onclick="nsga2SetMode('online',this)">Online Data</button>
+        <button class="seg-btn active" onclick="nsga2SetMode('online',this)">Latest Local Record</button>
         <button class="seg-btn" onclick="nsga2SetMode('excel',this)">Excel Offline</button>
         <button class="seg-btn" onclick="nsga2SetMode('manual',this)">Manual Input</button>
       </div>
@@ -689,7 +785,7 @@ input[type=number],input[type=text],select,textarea{font-size:14px;padding:9px 1
     <div class="card">
       <div class="card-hd"><div class="cdot"></div>PPO-Lagrangian Training Configuration</div>
       <div class="seg mb10" id="rl-run-mode-btns" style="width:100%">
-        <button class="seg-btn active" onclick="rlSetMode('online',this)">Online Data</button>
+        <button class="seg-btn active" onclick="rlSetMode('online',this)">Latest Local Record</button>
         <button class="seg-btn" onclick="rlSetMode('excel',this)">Excel Offline</button>
         <button class="seg-btn" onclick="rlSetMode('manual',this)">Manual Input</button>
       </div>
@@ -900,16 +996,17 @@ try {
   });
   socket.on('disconnect',()=>{ el('hd-ws-dot').className='sdot dot-er'; el('hd-ws-txt').textContent='Disconnected'; });
   socket.on('model_status',d=>{
+    if(d.demo){el('hd-model-dot').className='sdot dot-ld';el('hd-model-txt').textContent='Synthetic demo';return;}
     const ok=d.status==='ready'&&d.loaded>0;
     el('hd-model-dot').className='sdot '+(ok?'dot-ok':'dot-ld');
-    el('hd-model-txt').textContent=ok?`${d.loaded} ready`:'Loading...';
+    el('hd-model-txt').textContent=ok?`${d.loaded} ready`:(d.status==='unavailable'?'Unavailable':'Loading...');
     if(el('surr-model-src')) el('surr-model-src').textContent=`Model source: ${ok?'Local joblib ('+d.loaded+' models)':'Simulation mode (no joblib found)'}`;
   });
   socket.on('nsga2_progress',d=>{if(d.task_id===S.activeTask)updateNsga2Prog(d.progress,d.msg);});
   socket.on('nsga2_complete',d=>{if(d.task_id===S.activeTask)handleNsga2Done(d);});
   socket.on('rl_progress',d=>{if(d.task_id===S.activeTask)updateRLProg(d);});
   socket.on('rl_complete',d=>{if(d.task_id===S.activeTask)handleRLDone(d);});
-} catch(e){ showToast('⚠️ Real-time comm unavailable','Running in offline mode.','t-warn'); }
+} catch(e){ el('hd-ws-dot').className='sdot dot-ld';el('hd-ws-txt').textContent='HTTP polling'; }
 
 /* ─── Workflow Markers ──────────────────────────────────────── */
 function markWfStep(id){const s=el(id);if(!s)return;s.style.borderColor='rgba(26,107,58,0.45)';s.style.color='var(--green)';s.style.background='var(--green-light)';}
@@ -1025,29 +1122,32 @@ function updateKPIs(cu,as,E,profit,src){
 
 function drawGauge(id,val,color,label){
   const c=el(id); if(!c)return;
-  const W=c.width||160,H=c.height||95,ctx=c.getContext('2d');
+  // Use CSS pixels for type sizes and a DPR-sized bitmap for crisp screenshots.
+  const W=c.clientWidth||320,H=190,dpr=window.devicePixelRatio||1;
+  c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);
+  const ctx=c.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,W,H);
-  const cx=W/2,cy=H-10,r=Math.min(W,H*1.8)/2-16;
+  const cx=W/2,cy=H-20,r=Math.min(W,H*1.8)/2-32;
   ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);
-  ctx.lineWidth=10;ctx.lineCap='round';ctx.strokeStyle='rgba(0,0,0,0.06)';ctx.stroke();
+  ctx.lineWidth=20;ctx.lineCap='round';ctx.strokeStyle='rgba(0,0,0,0.06)';ctx.stroke();
   for(let i=0;i<=10;i++){
     const a=Math.PI+(i/10)*Math.PI;
     ctx.strokeStyle=i%5===0?'rgba(0,0,0,0.12)':'rgba(0,0,0,0.05)';
-    ctx.lineWidth=i%5===0?1.5:0.8;
-    ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(r-15),cy+Math.sin(a)*(r-15));
-    ctx.lineTo(cx+Math.cos(a)*(r-8),cy+Math.sin(a)*(r-8));ctx.stroke();
+    ctx.lineWidth=i%5===0?3:1.6;
+    ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(r-30),cy+Math.sin(a)*(r-30));
+    ctx.lineTo(cx+Math.cos(a)*(r-16),cy+Math.sin(a)*(r-16));ctx.stroke();
   }
   const grad=ctx.createLinearGradient(cx-r,cy,cx+r,cy);
   grad.addColorStop(0,color+'99');grad.addColorStop(1,color);
   ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,Math.PI+val*Math.PI);
-  ctx.strokeStyle=grad;ctx.lineWidth=10;ctx.lineCap='round';
+  ctx.strokeStyle=grad;ctx.lineWidth=20;ctx.lineCap='round';
   ctx.shadowColor=color;ctx.shadowBlur=14;ctx.stroke();ctx.shadowBlur=0;
-  ctx.fillStyle=color;ctx.font=`bold 19px 'IBM Plex Sans',sans-serif`;
+  ctx.fillStyle=color;ctx.font=`bold 38px 'IBM Plex Sans',sans-serif`;
   ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.shadowColor=color;ctx.shadowBlur=8;
-  ctx.fillText(Math.round(val*100)+'%',cx,cy-22);ctx.shadowBlur=0;
-  ctx.fillStyle='rgba(100,98,92,0.65)';ctx.font=`13px 'DM Mono',monospace`;
-  ctx.fillText(label,cx,cy-8);
+  ctx.fillText(Math.round(val*100)+'%',cx,cy-50);ctx.shadowBlur=0;
+  ctx.fillStyle='#6a6860';ctx.font=`26px 'DM Mono',monospace`;
+  ctx.fillText(label,cx,cy-15);
 }
 
 /* ════════════════════ DATA MANAGEMENT ════════════════════ */
@@ -1246,7 +1346,7 @@ async function runSurrogate(){
   const res=r.result;
   S.prediction={...res,params:getSurrParams(),cond:S.surrCond};
   const Cu=res.Cu_out,As=res.As_out,V=res.V||res.V_A||res.V_B||0;
-  const ok_cu=Cu<=8,ok_as=As<=9;
+  const ok_cu=!!res.constraints?.C1_Cu?.ok,ok_as=!!res.constraints?.C2_As?.ok;
   el('surr-results').innerHTML=`
     <div class="pred-grid">
       <div class="pred-box" style="border-color:${ok_cu?'rgba(26,69,117,0.3)':'rgba(192,39,45,0.35)'}">
@@ -1262,11 +1362,11 @@ async function runSurrogate(){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
       <div class="mstrip"><div><div class="small">V<sub>A</sub> / V<sub>avg</sub></div><div class="mono c-amber" style="font-size:15px;margin-top:3px">${V.toFixed(2)} V</div></div></div>
-      <div class="mstrip"><div><div class="small">E<sub>total</sub></div><div class="mono c-orange" style="font-size:15px;margin-top:3px">${res.E} kWh</div></div></div>
-      <div class="mstrip"><div><div class="small">Net Profit</div><div class="mono c-amber" style="font-size:15px;margin-top:3px">${res.profit} ×10⁴ CNY</div></div></div>
+      <div class="mstrip"><div><div class="small">E<sub>total</sub></div><div class="mono c-orange" style="font-size:15px;margin-top:3px">${res.E.toFixed(1)} kWh</div></div></div>
+      <div class="mstrip"><div><div class="small">Net Profit</div><div class="mono c-amber" style="font-size:15px;margin-top:3px">${res.profit.toFixed(2)} ×10⁴ CNY</div></div></div>
     </div>
     <div style="margin-top:10px;padding:8px 10px;background:var(--bg-base);border-radius:var(--r-sm);border:1px solid var(--bd);font-size:9.5px;color:var(--t3);font-family:var(--font-mono)">
-      Source: ${res.model_source==='real'?'🟢 Local joblib models':'🟡 Simulation mode (joblib not found)'} · Feasible: ${res.feasible?'✅ Yes':'❌ No'}
+      Source: ${res.model_source==='real'?'🟢 Local joblib models':'🟡 Explicit synthetic demo'} · Feasible: ${res.feasible?'✅ Yes':'❌ No'}
     </div>`;
   el('surr-actions').style.display='block';
   showToast('✅ Prediction complete',`Cu_out=${Cu} g/L · As_out=${As} g/L · Profit=${res.profit} ×10⁴ CNY`,'t-ok');
@@ -1368,10 +1468,10 @@ function closeModal(){el('modal').classList.remove('show');_selScene=null;}
 /* ════════════════════ NSGA-II ══════════════════════════════ */
 function initNsga2Config(){
   const cfg=[
-    {id:'pop',label:'Population size (N)',min:30,max:300,val:100,step:10,fmt:v=>v},
-    {id:'gen',label:'Max generations',min:50,max:500,val:200,step:50,fmt:v=>v},
+    {id:'pop',label:'Population size (N)',min:20,max:256,val:64,step:4,fmt:v=>v},
+    {id:'gen',label:'Max generations',min:5,max:200,val:30,step:5,fmt:v=>v},
     {id:'pc',label:'Crossover probability p_c',min:50,max:99,val:90,step:5,fmt:v=>(v*0.01).toFixed(2)},
-    {id:'eta',label:'Mutation index η_m',min:5,max:40,val:20,step:1,fmt:v=>v},
+    {id:'eta',label:'Crossover index η_c',min:5,max:40,val:20,step:1,fmt:v=>v},
     {id:'nsol',label:'Solutions retained',min:10,max:100,val:50,step:5,fmt:v=>v},
   ];
   el('nsga2-config').innerHTML=cfg.map(p=>`
@@ -1402,7 +1502,7 @@ function nsga2SetMode(mode,btn){
   document.querySelectorAll('#nsga2-run-mode-btns .seg-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   const div=el('nsga2-data-input');
-  if(mode==='excel'){div.style.display='block';div.innerHTML=`<label class="flabel">Select Excel / CSV file</label><input type="file" id="nsga2-file" accept=".xlsx,.xls,.csv">`;}
+  if(mode==='excel'){div.style.display='block';div.innerHTML=`<label class="flabel">Select Excel / CSV file</label><input type="file" id="nsga2-file" accept=".xlsx,.csv">`;}
   else if(mode==='manual'){div.style.display='block';div.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="flabel">Cu_in (g/L)</label><input type="number" id="nsga2-cu" value="38.9" step="0.1"></div><div><label class="flabel">T_A (℃)</label><input type="number" id="nsga2-temp" value="57" step="1"></div></div>`;}
   else{div.style.display='none';div.innerHTML='';}
 }
@@ -1441,14 +1541,14 @@ function applyNsga2Row(i){
 async function runNSGA2(){
   const btn=el('nsga2-btn');btn.disabled=true;btn.textContent='⏳ Optimizing...';
   el('nsga2-prog-wrap').style.display='block';updateNsga2Prog(5,'Launching NSGA-II...');
-  const params={run_mode:S.nsga2Mode,algorithm_params:{pop:parseInt(el('nv-pop').textContent),gen:parseInt(el('nv-gen').textContent),pc:parseFloat(el('nv-pc').textContent),eta:parseInt(el('nv-eta').textContent),n_solutions:parseInt(el('nv-nsol').textContent)}};
+  const params={condition:S.nsga2Cond,run_mode:S.nsga2Mode,algorithm_params:{pop:parseInt(el('nv-pop').textContent),gen:parseInt(el('nv-gen').textContent),pc:parseFloat(el('nv-pc').textContent),eta:parseInt(el('nv-eta').textContent),n_solutions:parseInt(el('nv-nsol').textContent)}};
   if(S.nsga2Mode==='excel'&&el('nsga2-file')?.files[0]) params.excel_filename=el('nsga2-file').files[0].name;
   if(S.nsga2Mode==='manual') params.manual_data={cu_in:parseFloat(el('nsga2-cu')?.value||38.9),temperature:parseFloat(el('nsga2-temp')?.value||57)};
   const r=await POST('/api/nsga2/run',{params});
   if(r.status==='success'){
     S.activeTask=r.task_id;
     showToast('✅ NSGA-II launched',`Task ID: ${r.task_id}`,'t-ok');
-    if(!socket?.connected) pollTask(r.task_id,'nsga2');
+    pollTask(r.task_id,'nsga2');
   } else {
     btn.disabled=false;btn.textContent='🧬 Launch NSGA-II Optimization';
     showToast('❌ Launch failed',r.message||r.error,'t-err');
@@ -1501,7 +1601,7 @@ function rlSetMode(mode,btn){
   document.querySelectorAll('#rl-run-mode-btns .seg-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   const div=el('rl-data-input');
-  if(mode==='excel'){div.style.display='block';div.innerHTML=`<label class="flabel">Select Excel / CSV file</label><input type="file" id="rl-file" accept=".xlsx,.xls,.csv">`;}
+  if(mode==='excel'){div.style.display='block';div.innerHTML=`<label class="flabel">Select Excel / CSV file</label><input type="file" id="rl-file" accept=".xlsx,.csv">`;}
   else if(mode==='manual'){div.style.display='block';div.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="flabel">Cu_in (g/L)</label><input type="number" id="rl-cu" value="38.9" step="0.1"></div><div><label class="flabel">T_A (℃)</label><input type="number" id="rl-temp" value="57" step="1"></div></div>`;}
   else{div.style.display='none';div.innerHTML='';}
 }
@@ -1772,7 +1872,7 @@ function drawRadarCmp(){
   const W=c.offsetWidth||320,H=200;c.width=W;c.height=H;
   const ctx=c.getContext('2d');ctx.fillStyle='#fafaf7';ctx.fillRect(0,0,W,H);
   const cx=W/2,cy=H/2+5,R=Math.min(W,H)*0.36;
-  const axes=['Cu_out↓','As_out↓','E_total↓','Profit↑'],n=axes.length;
+  const axes=['Cu_out↓','As_out↑','E_total↓','Profit↑'],n=axes.length;
   for(let r=1;r<=4;r++){ctx.beginPath();for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2-Math.PI/2;ctx.lineTo(cx+Math.cos(a)*R*(r/4),cy+Math.sin(a)*R*(r/4));}ctx.closePath();ctx.strokeStyle='rgba(26,69,117,0.09)';ctx.lineWidth=0.8;ctx.stroke();}
   for(let i=0;i<n;i++){const a=(i/n)*Math.PI*2-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);ctx.strokeStyle='rgba(26,69,117,0.13)';ctx.lineWidth=0.8;ctx.stroke();}
   axes.forEach((lbl,i)=>{const a=(i/n)*Math.PI*2-Math.PI/2;const lx=cx+Math.cos(a)*(R+23),ly=cy+Math.sin(a)*(R+23);ctx.fillStyle='rgba(40,38,34,0.65)';ctx.font=`13px 'IBM Plex Sans',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,lx,ly);});
@@ -1945,10 +2045,10 @@ function renderSafetyCheck(cu,as){
   const J=290,Vc=2.07,ratio=+(cu/(as+1e-9)).toFixed(2);
   const checks=[
     {n:'Constraint C₁  Cu_out ≤ 8.0 g/L',f:`Current: ${cu} g/L`,ok:cu<=8},
-    {n:'Constraint C₂  As_out ≤ 9.0 g/L',f:`Current: ${as} g/L`,ok:as<=9},
-    {n:'Constraint C₃  J ≤ 375 A/m²',f:`Current: ${J} A/m²`,ok:J<=375},
+    {n:'Constraint C₂  As_out ≥ 4.0 g/L',f:`Current: ${as} g/L`,ok:as>=4},
+    {n:'Constraint C₃  J ≤ 340 A/m²',f:`Current: ${J} A/m²`,ok:J<=340},
     {n:'Constraint C₄  V_cell ≤ 2.5 V',f:`Current: ${Vc} V`,ok:Vc<=2.5},
-    {n:'Constraint C₅  Cu_out/As_out ≥ 0.4',f:`Current: ${ratio}`,ok:ratio>=0.4},
+    {n:'Constraint C₅  Cu_out/As_out ≤ 0.8',f:`Current: ${ratio}`,ok:ratio<=0.8},
   ];
   el('safety-check').innerHTML=checks.map(c=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg-base);border-radius:var(--r-sm);margin-bottom:6px;border:1px solid ${c.ok?'rgba(26,107,58,0.12)':'rgba(192,39,45,0.2)'}">
@@ -2035,6 +2135,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     try{initRLConfig();setTimeout(()=>{drawCostConv();drawRLPareto();},80);}catch(e){console.warn(e);}
     try{initOperation();renderOpInputs();}catch(e){console.warn('op:',e);}
     try{loadDataStats();}catch(e){console.warn(e);}
+    initializeReleaseWorkflow().catch(e=>{el('runtime-notice').textContent='Runtime initialization failed: '+e.message;});
   },700);
   document.querySelectorAll('.tab').forEach(t=>{
     t.addEventListener('click',()=>{
@@ -2058,5 +2159,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 </script>
+<script src="/release_workflow.js"></script>
 </body>
 </html>

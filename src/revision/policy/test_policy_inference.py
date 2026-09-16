@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-ESRL = Path(r"E:/postgraduate1/Code/ESRLCMO")
+ESRL = Path(__file__).resolve().parents[2] / 'esrlcmo_project'
 OPT = ESRL / "optimization"
 
 

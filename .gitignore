@@ -1,11 +1,27 @@
-# Private source repository: ignore every file unless explicitly reviewed below.
+# Public source repository: ignore every file unless explicitly reviewed below.
 # Directories remain traversable so the exact file allowlist can take effect.
 *
 !*/
 
 # Repository documentation and upload policy.
 !/.gitignore
+!/.gitattributes
 !/README.md
+!/INTERVIEW_QA.md
+!/run_demo.py
+!/requirements-demo.txt
+!/.githooks/pre-commit
+!/docs/ARCHITECTURE.md
+!/docs/RUNBOOK.md
+!/docs/VALIDATION.md
+!/docs/PUBLICATION_AUDIT.md
+!/examples/create_demo_data.py
+!/tools/audit_publication.py
+!/tests/test_workflow.py
+!/src/esrlcmo_project/interface/process_contract.py
+!/src/esrlcmo_project/interface/model_runtime.py
+!/src/esrlcmo_project/interface/demo_optimization.py
+!/src/esrlcmo_project/interface/release_workflow.js
 
 # Reviewed application, modeling, optimization, and revision source files.
 !/src/esrlcmo_project/analyses/robustness/feed_concentration_disturbance.py
@@ -70,6 +86,7 @@
 /src/esrlcmo_project/legacy/
 /src/esrlcmo_project/optimization/hpc/
 /.local-only/
+/.runtime/
 .env
 .env.*
 *secret*
@@ -137,3 +154,7 @@ node_modules/
 **/exports/
 **/cache/
 **/opt_results/
+
+# Individually reviewed screenshots from the synthetic public demo only.
+!/docs/images/demo-overview.png
+!/docs/images/demo-optimization.png

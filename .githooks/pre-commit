@@ -1,0 +1,3 @@
+#!/bin/sh
+set -eu
+python tools/audit_publication.py --staged-only

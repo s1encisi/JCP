@@ -5,9 +5,9 @@ Improvements:
   - Real surrogate model loading from local joblib files
   - Real NSGA-II optimization via nsga2_optimization.py
   - Real PPO-Lagrangian via ppo_lagrangian.py
-  - Three data import modes: Excel upload, database, manual entry
+  - Validated CSV/XLSX upload and manual entry with local SQLite persistence
   - WebSocket real-time progress streaming
-  - Celery async tasks with progress callbacks
+  - Bounded background tasks with truthful progress and result records
   - Offline cache with SQLite fallback
 """
 
@@ -20,15 +20,25 @@ import sqlite3
 import subprocess
 import threading
 import traceback
+import csv
+import io
+import math
+import uuid
 from datetime import datetime
+from contextlib import contextmanager
 from pathlib import Path
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 os.environ['OMP_NUM_THREADS'] = '1'
 
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+from flask import Flask, request, jsonify, send_from_directory, send_file, abort
 from flask_socketio import SocketIO, emit
+from werkzeug.utils import secure_filename
+from process_contract import (MODES, DEFAULTS, BOUNDS, STATE_KEYS, normalize_params,
+                              condition_number, finite_number, with_constraints,
+                              demo_predict, decode_policy_action, result_row)
+
+DEMO_MODE = os.environ.get('JCP_DEMO', '0') == '1'
 
 # ── Optional heavy deps ──────────────────────────────────────────────────────
 try:
@@ -44,104 +54,61 @@ except ImportError:
     HAS_NUMPY = False
 
 try:
+    if DEMO_MODE:
+        raise ImportError('Synthetic demo does not load private model artifacts')
     import joblib
     HAS_JOBLIB = True
 except ImportError:
     HAS_JOBLIB = False
 
 try:
-    import sqlalchemy as sa
-    from sqlalchemy.orm import sessionmaker, declarative_base
-    HAS_SQLALCHEMY = True
-except ImportError:
-    HAS_SQLALCHEMY = False
-
-try:
+    if DEMO_MODE:
+        raise ImportError('Synthetic demo does not require PyTorch')
     import torch
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
 
 # ── App setup ────────────────────────────────────────────────────────────────
-app = Flask(__name__, static_folder='.', static_url_path='')
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+app = Flask(__name__, static_folder=None)
+app.config.update(MAX_CONTENT_LENGTH=4 * 1024 * 1024,
+                  TRUSTED_HOSTS=['localhost', '127.0.0.1', '[::1]'])
+socketio = SocketIO(app, async_mode='threading')
 
 BASE_DIR = Path(__file__).parent
-UPLOAD_DIR = BASE_DIR / 'uploads'
-CACHE_DIR  = BASE_DIR / 'cache'
-OPT_DIR    = BASE_DIR / 'opt_results'
-EXPORT_DIR = BASE_DIR / 'exports'
-MODEL_DIR  = BASE_DIR / 'joblib'
-RL_MODEL_DIR = BASE_DIR / 'pt'
+RUNTIME_DIR = Path(os.environ.get('JCP_RUNTIME_DIR', str(BASE_DIR.parents[2] / '.runtime' /
+                    ('demo' if DEMO_MODE else 'research')))).expanduser().resolve()
+UPLOAD_DIR = RUNTIME_DIR / 'uploads'
+CACHE_DIR  = RUNTIME_DIR / 'cache'
+OPT_DIR    = RUNTIME_DIR / 'opt_results'
+EXPORT_DIR = RUNTIME_DIR / 'exports'
+MODEL_DIR = Path(os.environ.get('JCP_MODEL_DIR', str(BASE_DIR.parent / 'modeling' / 'outputs')))
+RL_MODEL_DIR = Path(os.environ.get('JCP_POLICY_DIR', str(BASE_DIR / 'pt')))
 
 for d in [UPLOAD_DIR, CACHE_DIR, OPT_DIR, EXPORT_DIR]:
-    d.mkdir(exist_ok=True)
+    d.mkdir(parents=True, exist_ok=True)
 
 CACHE_DB  = str(CACHE_DIR / 'local_cache.db')
+
+
+@contextmanager
+def db_connection():
+    """Commit/rollback and close every connection, including on Windows."""
+    connection = sqlite3.connect(CACHE_DB, timeout=15)
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
+
+
 NSGA_SCRIPT = str(BASE_DIR / 'nsga2_optimization.py')
 PPO_SCRIPT  = str(BASE_DIR / 'ppo_lagrangian.py')
 NSGA_XLSX   = str(BASE_DIR / 'NSGA.xlsx')
 RL_XLSX     = str(BASE_DIR / 'RL.xlsx')
 
-# ── Database setup ───────────────────────────────────────────────────────────
-DB_URL = os.environ.get('DATABASE_URL', f'sqlite:///{CACHE_DIR}/copper_ew.db')
-
-if HAS_SQLALCHEMY:
-    try:
-        engine = sa.create_engine(DB_URL, pool_pre_ping=True)
-        Base   = declarative_base()
-        Session = sessionmaker(bind=engine)
-        db_session = Session()
-
-        class ProcessData(Base):
-            __tablename__ = 'process_data'
-            id          = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
-            timestamp   = sa.Column(sa.DateTime, default=datetime.utcnow)
-            cu_in       = sa.Column(sa.Float)
-            temperature = sa.Column(sa.Float)
-            current     = sa.Column(sa.Float)
-            flow        = sa.Column(sa.Float)
-            duration    = sa.Column(sa.Float)
-            mode        = sa.Column(sa.String(20))
-            source      = sa.Column(sa.String(20), default='manual')  # manual/excel/db
-            created_at  = sa.Column(sa.DateTime, default=datetime.utcnow)
-
-        class ExperimentRecord(Base):
-            __tablename__ = 'experiment_record'
-            id              = sa.Column(sa.Integer, primary_key=True)
-            experiment_id   = sa.Column(sa.String(100), unique=True)
-            algorithm       = sa.Column(sa.String(50))
-            hyperparameters = sa.Column(sa.JSON)
-            data_version    = sa.Column(sa.String(50))
-            runtime         = sa.Column(sa.Float)
-            pareto_front    = sa.Column(sa.JSON, nullable=True)
-            status          = sa.Column(sa.String(20), default='completed')
-            timestamp       = sa.Column(sa.DateTime, default=datetime.utcnow)
-
-        class User(Base):
-            __tablename__ = 'users'
-            id         = sa.Column(sa.Integer, primary_key=True)
-            username   = sa.Column(sa.String(50), unique=True)
-            password   = sa.Column(sa.String(100))
-            role       = sa.Column(sa.String(20))
-            created_at = sa.Column(sa.DateTime, default=datetime.utcnow)
-
-        class SystemLog(Base):
-            __tablename__ = 'system_logs'
-            id         = sa.Column(sa.Integer, primary_key=True)
-            action     = sa.Column(sa.String(100))
-            details    = sa.Column(sa.JSON, nullable=True)
-            timestamp  = sa.Column(sa.DateTime, default=datetime.utcnow)
-
-        Base.metadata.create_all(engine)
-        print("[DB] SQLAlchemy OK →", DB_URL)
-        DB_OK = True
-    except Exception as e:
-        print(f"[DB] SQLAlchemy failed: {e}")
-        DB_OK = False
-else:
-    DB_OK = False
+# All web-session data uses isolated local SQLite storage.
+DB_OK = True
 
 # ── SQLite cache (always available) ─────────────────────────────────────────
 def init_cache():
@@ -158,6 +125,7 @@ def init_cache():
         data_version TEXT, runtime REAL, pareto_front TEXT,
         status TEXT DEFAULT 'completed', timestamp TEXT
     )''')
+    c.execute('CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY, content TEXT NOT NULL, timestamp TEXT NOT NULL)')
     conn.commit(); conn.close()
 
 init_cache()
@@ -199,9 +167,12 @@ RL_MODEL_dims = {
 }
 
 _rl_models = {}  # keyed by condition number (1, 2, 3)
+_model_load_finished = DEMO_MODE
 
-class ActorCritic(torch.nn.Module):
+class ActorCritic(torch.nn.Module if HAS_TORCH else object):
     def __init__(self, s_dim, a_dim, w_dim=4, hidden=128, n_constraints=5):
+        if not HAS_TORCH:
+            raise RuntimeError('Local policy inference requires the research PyTorch environment')
         super().__init__()
         inp = s_dim + w_dim
         self.shared = torch.nn.Sequential(
@@ -271,7 +242,7 @@ def load_models_bg():
                         w_dim=dims.get('weight_dim', 4)
                     )
                     print(f"[DEBUG] Loading state dict from {path}")
-                    state_dict = torch.load(str(path), map_location='cpu')
+                    state_dict = torch.load(str(path), map_location='cpu', weights_only=True)
                     model.load_state_dict(state_dict)
                     model.eval()
                     _rl_models[cond] = model
@@ -287,101 +258,40 @@ def load_models_bg():
     socketio.emit('model_status', {'status': 'ready', 'loaded': n, 'rl_loaded': n_rl, 'msg': f'{n} surrogate + {n_rl} RL models loaded'})
     print(f"[Model] Total loaded: {n} surrogate + {n_rl} RL = {n + n_rl} models")
 
-threading.Thread(target=load_models_bg, daemon=True).start()
+def _load_research_models():
+    global _model_load_finished
+    try:
+        load_models_bg()
+    finally:
+        _model_load_finished = True
+
+
+if not DEMO_MODE:
+    threading.Thread(target=_load_research_models, daemon=True).start()
 
 # ── Surrogate prediction ──────────────────────────────────────────────────────
 def _predict_surrogate(mode: str, params: dict) -> dict:
-    """
-    Call real surrogate models if available, otherwise use mock.
-    mode: 'three_stage' | 'four_stage' | 'serial'
-    """
+    condition = next((c for c, name in MODES.items() if name == mode), None)
+    if condition is None:
+        raise ValueError('Unknown operating mode')
+    normalized = normalize_params(condition, params)
+    if DEMO_MODE:
+        return demo_predict(condition, normalized)
+    from model_runtime import predict_local
     with _model_lock:
-        mods = _models.get(mode, {})
+        available = dict(_models)
+    return predict_local(condition, params, available)
 
-    if not (mods.get('cu') and mods.get('as') and mods.get('voltage')) or not HAS_NUMPY:
-        return _mock_surrogate(mode, params)
-
-    try:
-        import numpy as np
-        now = datetime.now()
-        yr, mo, dy, hr = now.year, now.month, now.day, now.hour
-
-        if mode in ('three_stage', 'four_stage'):
-            Cu_in = params['Cu_in']
-            T  = params.get('T') or params.get('T3') or params.get('T4', 58)
-            I  = params.get('I') or params.get('I3') or params.get('I4', 15000)
-            Q  = params.get('Q') or params.get('Q3') or params.get('Q4', 117)
-            t  = params.get('t', 4)
-
-            Xv = np.array([[Cu_in, T, I, Q, yr, mo, dy, hr]])
-            V  = float(mods['voltage'].predict(Xv)[0])
-            Xc = np.array([[Cu_in, T, I, Q, V, yr, mo, dy, hr, V * I]])
-            Cu_out = float(mods['cu'].predict(Xc)[0])
-            As_out = float(mods['as'].predict(Xc)[0])
-            E = V * I * t / 1000.0
-            m_Cu = max(0, (Cu_in - Cu_out) * Q * t)
-            R_Cu = (98.44 - 0.14 - 82.64) * m_Cu
-            R_save = 2.5 * (11.64 + Cu_out) * Q * t
-            profit = (R_Cu - R_save - 0.6 * E - 200 * t) / 1e4
-            return {'Cu_out': round(Cu_out,3), 'As_out': round(As_out,3),
-                    'V': round(V,2), 'E': round(E,1), 'profit': round(profit,2)}
-
-        else:  # serial
-            Cu_in = params['Cu_in']
-            TA = params.get('T_A', 56); IA = params.get('I_A', 14820); QA = params.get('Q_A', 118)
-            TB = params.get('T_B', 59); IB = params.get('I_B', 14250); QB = params.get('Q_B', 119)
-            t  = params.get('t', 6)
-
-            Xv = np.array([[Cu_in, TA, IA, QA, TB, IB, QB, yr, mo, dy, hr]])
-            VMean = float(mods['voltage'].predict(Xv)[0])
-            tp = VMean * IA + VMean * IB
-            Xc = np.array([[Cu_in, TA, IA, QA, VMean, TB, IB, QB, VMean, yr, mo, dy, hr, tp]])
-            Cu_out = float(mods['cu'].predict(Xc)[0])
-            As_out = float(mods['as'].predict(Xc)[0])
-            E = (VMean * IA + VMean * IB) * t / 1000.0
-            m_Cu = max(0, (Cu_in - Cu_out) * QA * t)
-            R_Cu = (98.44 - 0.14 - 82.64) * m_Cu
-            R_save = 2.5 * (11.64 + Cu_out) * QA * t
-            profit = (R_Cu - R_save - 0.6 * E - 200 * t) / 1e4
-            return {'Cu_out': round(Cu_out,3), 'As_out': round(As_out,3),
-                    'V_A': round(VMean,2), 'V_B': round(VMean,2),
-                    'E': round(E,1), 'profit': round(profit,2)}
-    except Exception as e:
-        print(f"[Surrogate] Real model failed ({e}), using mock")
-        return _mock_surrogate(mode, params)
-
-def _mock_surrogate(mode: str, params: dict) -> dict:
-    import math
-    noise = lambda s=0.3: (random.random()-0.5)*2*s
-    if mode in ('three_stage', 'four_stage'):
-        I = params.get('I') or params.get('I3') or params.get('I4', 15000)
-        Cu_in = params.get('Cu_in', 38.9)
-        Q = params.get('Q') or params.get('Q3') or params.get('Q4', 117)
-        t = params.get('t', 4)
-        Cu_out = max(2, 4.5 + (I - 15000) / 10000 * (-0.8) + noise(0.25))
-        As_out = max(2, 4.8 + (Q - 117) / 5 * 0.3 + noise(0.3))
-        V = I * 2.17e-3 + noise(0.3)
-        E = round(V * I * t / 1000)
-        profit = round(((Cu_in - Cu_out) * Q * t * 8.5 - E * 0.65) / 10000, 2)
-        return {'Cu_out': round(Cu_out,3), 'As_out': round(As_out,3),
-                'V': round(V,2), 'E': E, 'profit': profit}
-    else:
-        Cu_in = params.get('Cu_in', 39)
-        IA = params.get('I_A', 14820); IB = params.get('I_B', 14250)
-        QA = params.get('Q_A', 118); t = params.get('t', 6)
-        Cu_out = max(2, 4.1 + (IA+IB-29000)/20000*(-0.5) + noise(0.25))
-        As_out = max(2, 4.2 + noise(0.35))
-        V3 = IA*2.2e-3; V4 = IB*2.1e-3
-        E = round((V3*IA+V4*IB)*t/1000)
-        profit = round(((Cu_in-Cu_out)*QA*t*8.5-E*0.65)/10000, 2)
-        return {'Cu_out': round(Cu_out,3), 'As_out': round(As_out,3),
-                'V_A': round(V3,2), 'V_B': round(V4,2), 'E': E, 'profit': profit}
 
 # ── Running tasks registry ────────────────────────────────────────────────────
-_tasks = {}  # task_id -> {'status','progress','result','process'}
+_tasks = {}  # bounded local task registry
+_optimization_lock = threading.Lock()
 
 def _new_task_id():
-    return f"task_{int(time.time()*1000)}_{random.randint(1000,9999)}"
+    completed = [k for k, v in _tasks.items() if v['status'] != 'running']
+    while len(_tasks) >= 100 and completed:
+        _tasks.pop(completed.pop(0), None)
+    return 'task_' + uuid.uuid4().hex
 
 # ════════════════════════════════════════════════════════════════════════════════
 # DATA MANAGEMENT ENDPOINTS
@@ -390,186 +300,86 @@ def _new_task_id():
 @app.route('/api/health')
 def health():
     n_models = sum(len(v) for v in _models.values())
-    n_rl_models = len(_rl_models)
-    return jsonify({
-        'status': 'ok',
-        'models_loaded': n_models,
-        'rl_models_loaded': n_rl_models,
-        'db_ok': DB_OK,
-        'timestamp': datetime.now().isoformat(),
-    })
+    return jsonify({'status': 'ok', 'mode': 'synthetic_demo' if DEMO_MODE else 'research',
+                    'models_loaded': n_models, 'rl_models_loaded': len(_rl_models),
+                    'db_ok': True, 'timestamp': datetime.now().isoformat(),
+                    'model_load_finished': _model_load_finished,
+                    'defaults': DEFAULTS, 'bounds': BOUNDS, 'condition_modes': MODES,
+                    'research_training': 'local CLI only',
+                    'surrogate_status': 'synthetic_demo' if DEMO_MODE else
+                    ('loading' if not _model_load_finished else 'ready' if n_models == 9 else 'unavailable')})
 
 @app.route('/api/data/manual', methods=['POST'])
 def data_manual():
-    """Import data via manual form entry."""
     try:
-        d = request.json
-        required = ['cu_in', 'temperature', 'current', 'flow', 'duration', 'mode']
-        for k in required:
-            if k not in d:
-                return jsonify({'status': 'error', 'message': f'Missing field: {k}'})
-
-        row = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'cu_in': float(d['cu_in']),
-            'temperature': float(d['temperature']),
-            'current': float(d['current']),
-            'flow': float(d['flow']),
-            'duration': float(d['duration']),
-            'mode': d['mode'],
-            'source': 'manual',
-        }
+        row = _validate_data_row(request.get_json())
         _sqlite_insert_data(row)
-        _log_action('data_import', {'source': 'manual', 'mode': d['mode']})
-        return jsonify({'status': 'success', 'message': '手动数据提交成功', 'record': row})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        _log_action('data_import', {'source': 'manual', 'mode': row['mode']})
+        return jsonify({'status': 'success', 'record': row, 'message': 'Record validated and saved locally'})
+    except (ValueError, TypeError) as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 422
 
 @app.route('/api/data/upload', methods=['POST'])
 def data_upload():
-    """Import data via Excel/CSV file upload."""
     if not HAS_PANDAS:
-        return jsonify({'status': 'error', 'message': 'pandas not installed'})
+        return jsonify({'status': 'error', 'message': 'Install pandas and openpyxl to import files'}), 503
+    upload = request.files.get('file')
+    if not upload or not upload.filename:
+        return jsonify({'status': 'error', 'message': 'Choose a CSV or XLSX file'}), 400
+    name = secure_filename(upload.filename)
+    extension = Path(name).suffix.lower()
+    if extension not in ('.csv', '.xlsx'):
+        return jsonify({'status': 'error', 'message': 'Supported types are CSV and XLSX'}), 415
+    target = UPLOAD_DIR / (uuid.uuid4().hex + extension)
     try:
-        if 'file' not in request.files:
-            return jsonify({'status': 'error', 'message': '未选择文件'})
-        f = request.files['file']
-        if not f.filename:
-            return jsonify({'status': 'error', 'message': '文件名为空'})
-
-        ext = Path(f.filename).suffix.lower()
-        save_path = UPLOAD_DIR / f.filename
-        f.save(str(save_path))
-
-        if ext in ('.xlsx', '.xls'):
-            df = pd.read_excel(str(save_path))
-        elif ext == '.csv':
-            df = pd.read_csv(str(save_path))
-        else:
-            return jsonify({'status': 'error', 'message': '仅支持 .xlsx/.xls/.csv'})
-
-        # Column name mapping (flexible)
-        col_map = {
-            'cu_in': ['cu_in', 'Cu_in', '电积前液Cu', '进液铜浓度', 'cu_feed'],
-            'temperature': ['temperature', 'temp', 'T', '溶液温度', '温度'],
-            'current': ['current', 'I', '电流强度', '电流', 'current_A'],
-            'flow': ['flow', 'Q', '流量', 'flow_rate'],
-            'duration': ['duration', 't', '时间', '电积时间', 'time_h'],
-            'mode': ['mode', '工况', '模式', 'operation_mode'],
-        }
-        rename = {}
-        for target, aliases in col_map.items():
-            for alias in aliases:
-                if alias in df.columns:
-                    rename[alias] = target
-                    break
-        df = df.rename(columns=rename)
-
-        imported = 0
-        errors = 0
-        for _, row in df.iterrows():
-            try:
-                r = {
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'cu_in':       float(row.get('cu_in', 38.9)),
-                    'temperature': float(row.get('temperature', 57)),
-                    'current':     float(row.get('current', 15000)),
-                    'flow':        float(row.get('flow', 117)),
-                    'duration':    float(row.get('duration', 4)),
-                    'mode':        str(row.get('mode', 'parallel')),
-                    'source': 'excel',
-                }
-                _sqlite_insert_data(r)
-                imported += 1
-            except Exception:
-                errors += 1
-
-        _log_action('data_import', {'source': 'excel', 'file': f.filename,
-                                     'imported': imported, 'errors': errors})
-        return jsonify({'status': 'success',
-                        'message': f'导入成功: {imported} 条记录，{errors} 条错误',
-                        'imported': imported, 'errors': errors,
-                        'columns': list(df.columns)})
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'message': str(e)})
+        upload.save(target)
+        frame = pd.read_csv(target) if extension == '.csv' else pd.read_excel(target)
+        if len(frame) > 2000:
+            return jsonify({'status': 'error', 'message': 'At most 2,000 rows per upload'}), 422
+        aliases = {'Cu_in': 'cu_in', 'T': 'temperature', 'I': 'current', 'Q': 'flow',
+                   't': 'duration', 'operation_mode': 'mode'}
+        frame = frame.rename(columns=aliases)
+        # Validate the whole batch before writing any row.
+        rows = [_validate_data_row(r, source='file') for r in frame.to_dict('records')]
+        with db_connection() as conn:
+            conn.executemany('INSERT INTO process_data '
+                '(timestamp,cu_in,temperature,current,flow,duration,mode,source) VALUES (?,?,?,?,?,?,?,?)',
+                [(r['timestamp'], r['cu_in'], r['temperature'], r['current'], r['flow'],
+                  r['duration'], r['mode'], r['source']) for r in rows])
+        _log_action('data_import', {'source': 'file', 'imported': len(rows)})
+        return jsonify({'status': 'success', 'imported': len(rows), 'errors': 0,
+                        'columns': list(frame.columns), 'message': 'Validated rows saved locally'})
+    except (ValueError, TypeError, KeyError):
+        return jsonify({'status': 'error', 'message': 'Invalid file or incomplete/out-of-range process rows; no rows were imported'}), 422
+    except Exception:
+        app.logger.exception('File import failed')
+        return jsonify({'status': 'error', 'message': 'Could not read this file; verify its format and required columns'}), 422
+    finally:
+        target.unlink(missing_ok=True)
 
 @app.route('/api/data/db-import', methods=['POST'])
 def data_db_import():
-    """Import data from external database connection."""
-    try:
-        d = request.json or {}
-        db_url = d.get('db_url', '')
-        query  = d.get('query', 'SELECT * FROM process_data LIMIT 1000')
-        limit  = int(d.get('limit', 500))
-
-        if not db_url:
-            return jsonify({'status': 'error', 'message': '数据库连接字符串为空'})
-        if not HAS_SQLALCHEMY:
-            return jsonify({'status': 'error', 'message': 'sqlalchemy not installed'})
-
-        ext_engine = sa.create_engine(db_url, connect_args={'connect_timeout': 5})
-        with ext_engine.connect() as conn:
-            if HAS_PANDAS:
-                df = pd.read_sql(query, conn).head(limit)
-                imported = len(df)
-                # Flexible column mapping same as upload
-                col_map = {
-                    'cu_in': ['cu_in', 'Cu_in', 'cu_feed'],
-                    'temperature': ['temperature', 'temp', 'T'],
-                    'current': ['current', 'I'],
-                    'flow': ['flow', 'Q'],
-                    'duration': ['duration', 't'],
-                    'mode': ['mode', 'operation_mode'],
-                }
-                rename = {}
-                for target, aliases in col_map.items():
-                    for alias in aliases:
-                        if alias in df.columns:
-                            rename[alias] = target; break
-                df = df.rename(columns=rename)
-                for _, row in df.iterrows():
-                    _sqlite_insert_data({
-                        'timestamp': datetime.utcnow().isoformat(),
-                        'cu_in': float(row.get('cu_in', 38.9)),
-                        'temperature': float(row.get('temperature', 57)),
-                        'current': float(row.get('current', 15000)),
-                        'flow': float(row.get('flow', 117)),
-                        'duration': float(row.get('duration', 4)),
-                        'mode': str(row.get('mode', 'parallel')),
-                        'source': 'database',
-                    })
-            else:
-                result = conn.execute(sa.text(query))
-                imported = result.rowcount
-
-        _log_action('data_import', {'source': 'database', 'imported': imported})
-        return jsonify({'status': 'success', 'message': f'数据库导入成功: {imported} 条', 'imported': imported})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+    return jsonify({'status': 'error', 'message':
+        'Arbitrary database connections and SQL are disabled in the web interface. '
+        'Export approved records to CSV/XLSX and import them locally.'}), 403
 
 @app.route('/api/data/list')
 def data_list():
-    """Return latest records from local cache."""
-    limit = int(request.args.get('limit', 100))
-    offset = int(request.args.get('offset', 0))
-    source_filter = request.args.get('source', None)
     try:
-        conn = sqlite3.connect(CACHE_DB)
-        q = 'SELECT * FROM process_data'
-        params = []
-        if source_filter:
-            q += ' WHERE source=?'; params.append(source_filter)
-        q += ' ORDER BY id DESC LIMIT ? OFFSET ?'
-        params += [limit, offset]
-        rows = conn.execute(q, params).fetchall()
-        cols = [d[0] for d in conn.execute('PRAGMA table_info(process_data)').fetchall()]
-        total = conn.execute('SELECT COUNT(*) FROM process_data').fetchone()[0]
-        conn.close()
-        data = [dict(zip(cols, r)) for r in rows]
-        return jsonify({'status': 'success', 'data': data, 'total': total})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e), 'data': [], 'total': 0})
+        limit = int(request.args.get('limit', 100))
+        offset = int(request.args.get('offset', 0))
+        if not 1 <= limit <= 500 or offset < 0:
+            raise ValueError('Invalid pagination')
+        source_filter = request.args.get('source')
+        with db_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            where, values = (' WHERE source=?', [source_filter]) if source_filter else ('', [])
+            total = conn.execute('SELECT COUNT(*) FROM process_data' + where, values).fetchone()[0]
+            rows = conn.execute('SELECT * FROM process_data' + where + ' ORDER BY id DESC LIMIT ? OFFSET ?',
+                                values + [limit, offset]).fetchall()
+        return jsonify({'status': 'success', 'data': [dict(r) for r in rows], 'total': total})
+    except (ValueError, TypeError):
+        return jsonify({'status': 'error', 'message': 'Invalid pagination', 'data': [], 'total': 0}), 422
 
 @app.route('/api/data/stats')
 def data_stats():
@@ -596,36 +406,24 @@ def data_stats():
 
 @app.route('/api/surrogate/predict', methods=['POST'])
 def surrogate_predict():
-    """Unified surrogate prediction endpoint."""
     try:
-        d = request.json or {}
-        cond = int(d.get('condition', 1))
-        params = d.get('params', {})
-
-        mode_map = {1: 'three_stage', 2: 'four_stage', 3: 'serial'}
-        mode = mode_map.get(cond, 'three_stage')
-
-        result = _predict_surrogate(mode, params)
-
-        # Check constraints
-        Cu_out = result['Cu_out']
-        As_out = result['As_out']
-        constraints = {
-            'C1_Cu': {'ok': Cu_out <= 8.0, 'val': Cu_out, 'limit': 8.0},
-            'C2_As': {'ok': As_out <= 9.0, 'val': As_out, 'limit': 9.0},
-            'C5_CuAs': {'ok': (Cu_out/(As_out+1e-9)) >= 0.4, 'val': round(Cu_out/(As_out+1e-9),3), 'limit': 0.4},
-        }
-        all_ok = all(c['ok'] for c in constraints.values())
-        result['constraints'] = constraints
-        result['feasible'] = all_ok
-        result['condition'] = cond
-        result['model_source'] = 'real' if (mode in _models and len(_models[mode]) == 3) else 'mock'
-
-        _log_action('surrogate_predict', {'condition': cond, 'result': result})
+        d = request.get_json()
+        if not isinstance(d, dict):
+            raise ValueError('A JSON object is required')
+        condition = condition_number(d.get('condition', 1))
+        params = normalize_params(condition, d.get('params', {}))
+        if 'timestamp' in d.get('params', {}):
+            params['timestamp'] = d['params']['timestamp']
+        result = _predict_surrogate(MODES[condition], params)
+        _log_action('surrogate_predict', {'condition': condition, 'source': result['model_source']})
         return jsonify({'status': 'success', 'result': result})
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'message': str(e)})
+    except (ValueError, TypeError, KeyError) as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 422
+    except RuntimeError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 503
+    except Exception:
+        app.logger.exception('Surrogate inference failed')
+        return jsonify({'status': 'error', 'message': 'Local model inference failed; no substitute result was generated'}), 503
 
 # ════════════════════════════════════════════════════════════════════════════════
 # NSGA-II OPTIMIZATION
@@ -633,123 +431,74 @@ def surrogate_predict():
 
 @app.route('/api/nsga2/run', methods=['POST'])
 def nsga2_run():
-    """Launch NSGA-II optimization — runs nsga2_optimization.py as subprocess."""
+    if not DEMO_MODE:
+        return jsonify({'status': 'error', 'message':
+            'Research optimization is run through the audited local CLI. '
+            'Use run_demo.py for the synthetic NSGA-II workflow.'}), 409
     try:
-        d = request.json or {}
-        params = d.get('params', {})
-        task_id = _new_task_id()
+        data = request.get_json()
+        params = data.get('params', {})
+        if params.get('run_mode', 'online') not in ('online', 'manual', 'excel'):
+            raise ValueError('Unknown optimization input mode')
+        condition = condition_number(params.get('condition', 1))
+        algorithm = params.get('algorithm_params', {})
+        population = _bounded_int(algorithm.get('pop', 64), 20, 256, 'population')
+        generations = _bounded_int(algorithm.get('gen', 30), 5, 200, 'generations')
+        seed = _bounded_int(algorithm.get('seed', 42), 0, 2147483647, 'seed')
+        n_solutions = _bounded_int(algorithm.get('n_solutions', 50), 4, 100, 'retained solutions')
+        crossover = finite_number(algorithm.get('pc', 0.9), 'crossover probability')
+        eta = finite_number(algorithm.get('eta', 15), 'crossover eta')
+        if not 0 < crossover <= 1 or not 1 <= eta <= 100:
+            raise ValueError('Invalid crossover settings')
+        if params.get('run_mode') == 'excel':
+            raise ValueError('Import the file in Data Management first, then use the latest-record input mode')
+        inputs = dict(DEFAULTS[condition])
+        if params.get('run_mode') == 'manual':
+            manual = params.get('manual_data', {})
+            inputs['Cu_in'] = manual.get('cu_in', inputs['Cu_in'])
+            for unit in ('A', 'B'):
+                if f'T_{unit}' in inputs:
+                    inputs[f'T_{unit}'] = manual.get('temperature', inputs[f'T_{unit}'])
+        else:
+            with db_connection() as conn:
+                conn.row_factory = sqlite3.Row
+                latest = conn.execute('SELECT * FROM process_data WHERE mode=? ORDER BY id DESC LIMIT 1',
+                                      (MODES[condition],)).fetchone()
+            if latest:
+                inputs = _row_params(dict(latest), condition)
+        inputs = normalize_params(condition, inputs)
+    except (ValueError, TypeError, AttributeError, KeyError) as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 422
+    if not _optimization_lock.acquire(blocking=False):
+        return jsonify({'status': 'error', 'message': 'An optimization is already running; wait for it to finish'}), 409
+    task_id = _new_task_id()
+    _tasks[task_id] = {'status': 'running', 'progress': 5, 'result': None}
+    def run():
+        start = time.perf_counter()
+        try:
+            from demo_optimization import run_demo_nsga2
+            result = run_demo_nsga2(condition, inputs, population=population, generations=generations,
+                                    seed=seed, crossover=crossover, eta=eta, n_solutions=n_solutions)
+            record_params = {'condition': condition, 'run_mode': params.get('run_mode', 'online'),
+                             'algorithm_params': {'population': population, 'generations': generations,
+                                                  'seed': seed, 'crossover': crossover, 'eta': eta},
+                             'inputs': inputs, 'model_source': 'synthetic_demo',
+                             'actual_evaluations': result['evaluations']}
+            _save_experiment(task_id, 'NSGA-II (synthetic demo)', record_params,
+                             result, runtime=time.perf_counter() - start)
+            _tasks[task_id].update(status='completed', progress=100, result=result)
+            socketio.emit('nsga2_complete', {'task_id': task_id, 'success': True, **result})
+        except Exception:
+            app.logger.exception('NSGA-II task failed')
+            message = 'Optimization failed; no substitute results were generated. Check the local server log.'
+            _tasks[task_id].update(status='failed', progress=100, error=message)
+            socketio.emit('nsga2_error', {'task_id': task_id, 'error': message})
+        finally:
+            _optimization_lock.release()
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({'status': 'success', 'task_id': task_id})
 
-        _tasks[task_id] = {'status': 'running', 'progress': 0, 'result': None, 'log': []}
 
-        def _run():
-            try:
-                run_mode = params.get('run_mode', 'online')
-                cmd = [sys.executable, NSGA_SCRIPT]
-
-                # Algorithm params
-                algo = params.get('algorithm_params', {})
-                pop  = algo.get('pop', 100)
-                gen  = algo.get('gen', 200)
-
-                # Use fast mode if small pop/gen
-                if pop <= 50 or gen <= 100:
-                    cmd.append('--fast')
-                else:
-                    cmd.append('--normal')
-
-                cmd += ['--n-solutions', str(algo.get('n_solutions', 50))]
-                cmd += ['--seed', str(algo.get('seed', 42))]
-
-                # Data source handling
-                if run_mode == 'excel':
-                    upload_file = params.get('excel_filename', '')
-                    if upload_file:
-                        cmd += ['--data-file', str(UPLOAD_DIR / upload_file)]
-                elif run_mode == 'manual':
-                    manual = params.get('manual_data', {})
-                    cmd += ['--manual-cu-in', str(manual.get('cu_in', 38.9))]
-                    cmd += ['--manual-temp',  str(manual.get('temperature', 57))]
-
-                _tasks[task_id]['log'].append(f"Starting: {' '.join(cmd)}")
-                socketio.emit('nsga2_progress', {'task_id': task_id, 'progress': 5,
-                                                  'msg': 'Starting NSGA-II...'})
-
-                if Path(NSGA_SCRIPT).exists():
-                    proc = subprocess.Popen(
-                        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                        text=True, cwd=str(BASE_DIR))
-                    _tasks[task_id]['process'] = proc
-                    gen_progress = 0
-                    for line in proc.stdout:
-                        line = line.rstrip()
-                        _tasks[task_id]['log'].append(line)
-                        if '阶段' in line or 'Phase' in line or 'stage' in line.lower():
-                            gen_progress = min(gen_progress + 15, 90)
-                            socketio.emit('nsga2_progress', {
-                                'task_id': task_id, 'progress': gen_progress, 'msg': line[:80]})
-                    proc.wait()
-                    success = proc.returncode == 0
-                else:
-                    # Simulate for demo
-                    for p in range(10, 101, 10):
-                        time.sleep(0.4)
-                        socketio.emit('nsga2_progress', {
-                            'task_id': task_id, 'progress': p,
-                            'msg': f'Optimizing... {p}%'})
-                    success = True
-
-                # Load results if available
-                results = _load_nsga2_results()
-                _tasks[task_id].update({'status': 'completed' if success else 'failed',
-                                         'progress': 100, 'result': results})
-                socketio.emit('nsga2_complete', {
-                    'task_id': task_id, 'success': success, 'results': results})
-                _save_experiment(task_id, 'NSGA-II', params, results)
-            except Exception as e:
-                traceback.print_exc()
-                _tasks[task_id].update({'status': 'error', 'error': str(e)})
-                socketio.emit('nsga2_error', {'task_id': task_id, 'error': str(e)})
-
-        threading.Thread(target=_run, daemon=True).start()
-        return jsonify({'status': 'success', 'task_id': task_id})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
-
-def _load_nsga2_results():
-    """Load NSGA-II results from output CSV files."""
-    results = {}
-    for cond, fname in [(1,'三段工况'), (2,'四段工况'), (3,'串联工况')]:
-        path = BASE_DIR / 'newnsga2' / f'pareto_nsga2_{fname}.csv'
-        if path.exists() and HAS_PANDAS:
-            try:
-                df = pd.read_csv(str(path)).head(50)
-                results[f'cond{cond}'] = df.to_dict('records')
-            except:
-                pass
-    return results if results else _mock_nsga2_results()
-
-def _mock_nsga2_results():
-    """Fallback mock NSGA-II results."""
-    return {
-        'cond1': [
-            {'scene':'Quality First','Cu_in':37.0,'T':64,'I':20072,'Q':112,'t':7.85,'Cu_out':3.64,'As_out':4.93,'E':5496,'profit':27.83},
-            {'scene':'Energy First','Cu_in':40.0,'T':60,'I':8001,'Q':120,'t':2.0,'Cu_out':4.98,'As_out':5.79,'E':506,'profit':8.00},
-            {'scene':'Profit First','Cu_in':55.0,'T':64,'I':13553,'Q':123,'t':8.0,'Cu_out':4.63,'As_out':6.28,'E':3575,'profit':47.05},
-            {'scene':'Balanced','Cu_in':34.52,'T':64,'I':20314,'Q':112,'t':4.06,'Cu_out':3.71,'As_out':4.89,'E':2896,'profit':13.29},
-        ],
-        'cond2': [
-            {'scene':'Quality First','Cu_in':29.52,'T':62,'I':16151,'Q':118,'t':7.95,'Cu_out':4.47,'As_out':5.44,'E':4471,'profit':22.29},
-            {'scene':'Energy First','Cu_in':38.67,'T':63,'I':8002,'Q':119,'t':2.0,'Cu_out':5.90,'As_out':6.90,'E':512,'profit':7.41},
-            {'scene':'Profit First','Cu_in':55.0,'T':62,'I':15776,'Q':122,'t':8.0,'Cu_out':5.26,'As_out':7.84,'E':4081,'profit':46.09},
-            {'scene':'Balanced','Cu_in':52.26,'T':62,'I':15606,'Q':118,'t':7.16,'Cu_out':4.85,'As_out':6.18,'E':3662,'profit':37.92},
-        ],
-        'cond3': [
-            {'scene':'Quality First','Cu_in':36.6,'T_A':47,'I_A':13968,'Q_A':114,'T_B':52,'I_B':12500,'Q_B':115,'t':7.90,'Cu_out':4.13,'As_out':3.91,'E':9170,'profit':28.29},
-            {'scene':'Energy First','Cu_in':31.43,'T_A':60,'I_A':10002,'Q_A':120,'T_B':58,'I_B':9800,'Q_B':118,'t':2.0,'Cu_out':4.22,'As_out':6.21,'E':1177,'profit':6.14},
-            {'scene':'Profit First','Cu_in':55.0,'T_A':47,'I_A':10831,'Q_A':122,'T_B':50,'I_B':11200,'Q_B':120,'t':8.0,'Cu_out':4.87,'As_out':7.06,'E':9183,'profit':46.36},
-            {'scene':'Balanced','Cu_in':54.99,'T_A':47,'I_A':14032,'Q_A':114,'T_B':51,'I_B':13500,'Q_B':116,'t':7.98,'Cu_out':4.28,'As_out':4.29,'E':8995,'profit':44.73},
-        ],
-    }
 
 # ════════════════════════════════════════════════════════════════════════════════
 # PPO-Lagrangian RL
@@ -757,303 +506,108 @@ def _mock_nsga2_results():
 
 @app.route('/api/rl/run', methods=['POST'])
 def rl_run():
-    """Launch PPO-Lagrangian training."""
-    try:
-        d = request.json or {}
-        params = d.get('params', {})
-        task_id = _new_task_id()
+    return jsonify({'status': 'error', 'message':
+        'PPO training requires private research assets and is an explicit local CLI operation. '
+        'The web interface never simulates completed training. Local saved-policy inference is available in research mode.'}), 409
 
-        _tasks[task_id] = {'status': 'running', 'progress': 0, 'result': None, 'log': []}
 
-        def _run():
-            try:
-                cond = int(params.get('condition', 3))
-                agent_mode = params.get('agent_mode', 'single')
-                algo = params.get('algorithm_params', {})
-
-                cmd = [sys.executable, PPO_SCRIPT, '--condition', str(cond)]
-                if algo.get('steps', 300000) <= 50000:
-                    cmd.append('--fast')
-
-                # Data source handling
-                run_mode = params.get('run_mode', 'online')
-                if run_mode == 'excel':
-                    upload_file = params.get('excel_filename', '')
-                    if upload_file:
-                        cmd += ['--data-file', str(UPLOAD_DIR / upload_file)]
-                elif run_mode == 'manual':
-                    manual = params.get('manual_data', {})
-                    cmd += ['--manual-cu-in', str(manual.get('cu_in', 38.9))]
-
-                socketio.emit('rl_progress', {'task_id': task_id, 'progress': 3,
-                                               'step': 0, 'reward': 0,
-                                               'msg': f'Launching PPO-Lagrangian Condition {cond}...'})
-
-                if Path(PPO_SCRIPT).exists():
-                    proc = subprocess.Popen(
-                        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                        text=True, cwd=str(BASE_DIR))
-                    _tasks[task_id]['process'] = proc
-                    step_progress = 0
-                    for line in proc.stdout:
-                        line = line.rstrip()
-                        _tasks[task_id]['log'].append(line)
-                        # Parse progress from PPO output
-                        if 'PPO' in line and 'upd=' in line:
-                            try:
-                                parts = line.split()
-                                for p in parts:
-                                    if 'upd=' in p:
-                                        upd = p.split('=')[1].split('/')[0]
-                                        total_upd = p.split('=')[1].split('/')[1] if '/' in p.split('=')[1] else '100'
-                                        step_progress = min(int(upd)/max(int(total_upd),1)*100, 99)
-                            except:
-                                step_progress = min(step_progress + 1, 99)
-                            socketio.emit('rl_progress', {
-                                'task_id': task_id, 'progress': step_progress, 'msg': line[:100]})
-                    proc.wait()
-                    success = proc.returncode == 0
-                else:
-                    # Simulate training
-                    for p in range(0, 101, 5):
-                        time.sleep(0.3)
-                        reward = -2.5 + p * 0.018
-                        lam = max(0.5 - p * 0.004, 0.08)
-                        socketio.emit('rl_progress', {
-                            'task_id': task_id, 'progress': p,
-                            'step': p * 3000, 'reward': round(reward,3),
-                            'lambda': round(lam,3), 'constraint_rate': min(60+p*0.4, 100),
-                            'msg': f'Training step {p*3000}...'})
-                    success = True
-
-                results = _load_rl_results(cond)
-                _tasks[task_id].update({'status': 'completed' if success else 'failed',
-                                         'progress': 100, 'result': results})
-                socketio.emit('rl_complete', {
-                    'task_id': task_id, 'success': success, 'results': results})
-                _save_experiment(task_id, f'PPO-Lagrangian-C{cond}', params, results)
-            except Exception as e:
-                traceback.print_exc()
-                _tasks[task_id].update({'status': 'error', 'error': str(e)})
-                socketio.emit('rl_error', {'task_id': task_id, 'error': str(e)})
-
-        threading.Thread(target=_run, daemon=True).start()
-        return jsonify({'status': 'success', 'task_id': task_id})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
-
-def _load_rl_results(cond: int):
-    path = BASE_DIR / f'outputs_condition{cond}' / f'rl_pareto_condition{cond}.csv'
-    if path.exists() and HAS_PANDAS:
-        try:
-            df = pd.read_csv(str(path)).head(50)
-            return df.to_dict('records')
-        except:
-            pass
-    return _mock_rl_results()
-
-def _mock_rl_results():
-    return [
-        {'scene': 'Quality First', 'Cu_out': 3.98, 'As_out': 3.85, 'E': 8820, 'profit': 27.6},
-        {'scene': 'Energy First',  'Cu_out': 4.15, 'As_out': 6.05, 'E': 980,  'profit': 5.8},
-        {'scene': 'Profit First',  'Cu_out': 4.72, 'As_out': 6.98, 'E': 9050, 'profit': 48.1},
-        {'scene': 'Balanced',      'Cu_out': 4.11, 'As_out': 4.18, 'E': 8650, 'profit': 45.5},
-    ]
 
 @app.route('/api/rl/predict', methods=['POST'])
 def rl_predict():
-    """RL actor model inference - get optimized control parameters."""
-    cond = 1
-    params = {}
+    if DEMO_MODE:
+        return jsonify({'status': 'error', 'message': 'Synthetic demo does not pretend to load a trained PPO policy'}), 409
     try:
-        d = request.get_json(silent=True) or {}
-        cond = int(d.get('condition', 1))
-        params = d.get('params', {})
-
-        if cond not in _rl_models:
-            print(f"[RL Predict] No RL model for condition {cond}, using mock")
-            return jsonify({'status': 'success', 'result': _mock_rl_inference(cond, params), 'model_source': 'mock'})
-
-        if not HAS_TORCH or not HAS_NUMPY:
-            print("[RL Predict] torch or numpy not available, using mock")
-            return jsonify({'status': 'success', 'result': _mock_rl_inference(cond, params), 'model_source': 'mock'})
-
-        import numpy as np
-        model = _rl_models[cond]
-
-        Cu_in = params.get('Cu_in', 38.9)
-        t = params.get('t', 4)
-
-        if cond == 1:
-            TA = params.get('T_A', params.get('T', 56))
-            IA = params.get('I_A', params.get('I', 14820))
-            QA = params.get('Q_A', params.get('Q', 118))
-            state = np.array([Cu_in, TA, IA, QA, t], dtype=np.float32)
-        elif cond == 2:
-            TB = params.get('T_B', params.get('T', 59))
-            IB = params.get('I_B', params.get('I', 14250))
-            QB = params.get('Q_B', params.get('Q', 119))
-            state = np.array([Cu_in, TB, IB, QB, t], dtype=np.float32)
-        else:
-            TA = params.get('T_A', 56)
-            IA = params.get('I_A', 14820)
-            QA = params.get('Q_A', 118)
-            TB = params.get('T_B', 59)
-            IB = params.get('I_B', 14250)
-            QB = params.get('Q_B', 119)
-            state = np.array([Cu_in, TA, IA, QA, TB, IB, QB, t], dtype=np.float32)
-
-        weight = np.array([0.25, 0.25, 0.25, 0.25], dtype=np.float32)
-
-        state_t = torch.from_numpy(state).unsqueeze(0)
-        weight_t = torch.from_numpy(weight).unsqueeze(0)
-
+        data = request.get_json()
+        condition = condition_number(data.get('condition', 1))
+        params = normalize_params(condition, data.get('params', {}))
+        if not HAS_TORCH or condition not in _rl_models:
+            raise RuntimeError('The local policy is unavailable; configure JCP_POLICY_DIR')
+        weights = data.get('weights', [0.25] * 4)
+        if not isinstance(weights, list) or len(weights) != 4:
+            raise ValueError('Provide four non-negative preference weights')
+        weights = [finite_number(w, 'weight') for w in weights]
+        if min(weights) < 0 or sum(weights) <= 0:
+            raise ValueError('Preference weights must be non-negative with a positive sum')
+        weights = [w / sum(weights) for w in weights]
+        state = [params[key] for key in STATE_KEYS[condition]]
         with torch.no_grad():
-            mu, std = model(state_t, weight_t)
-            action = mu.squeeze().cpu().numpy()
+            action, _ = _rl_models[condition](torch.tensor([state], dtype=torch.float32),
+                                             torch.tensor([weights], dtype=torch.float32))
+        updated = decode_policy_action(condition, params, action[0].cpu().tolist(), fixed_feed=True)
+        if 'timestamp' in data.get('params', {}):
+            updated['timestamp'] = data['params']['timestamp']
+        prediction = _predict_surrogate(MODES[condition], updated)
+        result = result_row(condition, updated, prediction, scene='Policy inference')
+        unit = 'B' if condition == 2 else 'A'
+        result.update(I_opt=updated[f'I_{unit}'], T_opt=updated[f'T_{unit}'],
+                      Q_opt=updated[f'Q_{unit}'], updated_params=updated, weights=weights)
+        return jsonify({'status': 'success', 'model_source': 'real', 'result': result})
+    except (ValueError, TypeError, KeyError, AttributeError) as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 422
+    except RuntimeError as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 503
+    except Exception:
+        app.logger.exception('Policy inference failed')
+        return jsonify({'status': 'error', 'message': 'Policy evaluation failed; no fallback recommendation was generated'}), 503
 
-        if cond == 1:
-            IA_opt = float(np.clip(action[0], 8000, 27000))
-            QA_opt = float(np.clip(action[1], 111, 123))
-            TA_opt = float(np.clip(action[2], 40, 65))
-            I_opt, Q_opt, T_opt = IA_opt, QA_opt, TA_opt
-        elif cond == 2:
-            IB_opt = float(np.clip(action[0], 8000, 27000))
-            QB_opt = float(np.clip(action[1], 111, 123))
-            TB_opt = float(np.clip(action[2], 40, 65))
-            I_opt, Q_opt, T_opt = IB_opt, QB_opt, TB_opt
-        else:
-            IA_opt = float(np.clip(action[0], 8000, 27000))
-            QA_opt = float(np.clip(action[1], 111, 123))
-            TA_opt = float(np.clip(action[2], 40, 65))
-            IB_opt = float(np.clip(action[4], 8000, 27000))
-            QB_opt = float(np.clip(action[5], 111, 123))
-            TB_opt = float(np.clip(action[6], 40, 65))
-            I_opt, Q_opt, T_opt = IA_opt, QA_opt, TA_opt
-
-        result = _predict_surrogate(
-            {1: 'three_stage', 2: 'four_stage', 3: 'serial'}[cond],
-            {'Cu_in': Cu_in, 'T': T_opt, 'I': I_opt, 'Q': Q_opt, 't': t}
-        )
-        result.update({
-            'I_opt': round(I_opt, 0),
-            'Q_opt': round(Q_opt, 1),
-            'T_opt': round(T_opt, 0),
-            'condition': cond,
-        })
-
-        return jsonify({'status': 'success', 'result': result, 'model_source': 'real'})
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({'status': 'success', 'result': _mock_rl_inference(cond, params), 'model_source': 'mock', 'warning': str(e)})
-
-def _mock_rl_inference(cond: int, params: dict) -> dict:
-    """Mock RL inference for testing."""
-    Cu_in = params.get('Cu_in', 38.9)
-    base_results = _mock_rl_results()
-    balanced = [r for r in base_results if r['scene'] == 'Balanced'][0]
-
-    return {
-        'Cu_out': balanced['Cu_out'],
-        'As_out': balanced['As_out'],
-        'E': balanced['E'],
-        'profit': balanced['profit'],
-        'I_opt': 14500 + cond * 300,
-        'Q_opt': 118.5,
-        'T_opt': 56 + cond,
-        'condition': cond,
-    }
 
 @app.route('/api/task/<task_id>')
 def task_status(task_id):
     t = _tasks.get(task_id, {'status': 'not_found'})
-    return jsonify({k: v for k, v in t.items() if k != 'process'})
+    return jsonify({k: v for k, v in t.items() if k != 'process'}), (404 if t['status'] == 'not_found' else 200)
 
 # ════════════════════════════════════════════════════════════════════════════════
 # EXPERIMENT RECORDS
 # ════════════════════════════════════════════════════════════════════════════════
 
-def _save_experiment(task_id, algorithm, params, result):
-    try:
-        conn = sqlite3.connect(CACHE_DB)
-        conn.execute('''INSERT OR IGNORE INTO experiment_records
-            (experiment_id, algorithm, hyperparameters, data_version, runtime, pareto_front, status, timestamp)
-            VALUES (?,?,?,?,?,?,?,?)''',
-            (task_id, algorithm, json.dumps(params), 'v2.0',
-             time.time() % 10000, json.dumps(result) if result else None,
-             'completed', datetime.utcnow().isoformat()))
-        conn.commit(); conn.close()
-    except Exception as e:
-        print(f"[DB] Save experiment failed: {e}")
+def _save_experiment(task_id, algorithm, params, result, runtime):
+    with db_connection() as conn:
+        conn.execute('INSERT INTO experiment_records '
+            '(experiment_id,algorithm,hyperparameters,data_version,runtime,pareto_front,status,timestamp) '
+            'VALUES (?,?,?,?,?,?,?,?)', (task_id, algorithm, json.dumps(params, allow_nan=False),
+            'synthetic-demo-v1' if DEMO_MODE else 'local-research', float(runtime),
+            json.dumps(result, allow_nan=False), 'completed', datetime.now().isoformat()))
 
 @app.route('/api/experiments')
 def experiments():
-    try:
-        conn = sqlite3.connect(CACHE_DB)
-        rows = conn.execute('SELECT * FROM experiment_records ORDER BY id DESC LIMIT 50').fetchall()
-        cols = [d[0] for d in conn.execute('PRAGMA table_info(experiment_records)').fetchall()]
-        conn.close()
-        data = []
-        for r in rows:
-            row = dict(zip(cols, r))
-            if row.get('hyperparameters'):
-                try: row['hyperparameters'] = json.loads(row['hyperparameters'])
-                except: pass
-            if row.get('pareto_front'):
-                try: row['pareto_front'] = json.loads(row['pareto_front'])
-                except: pass
-            data.append(row)
-        if not data:
-            data = _mock_experiments()
-        return jsonify(data)
-    except Exception as e:
-        return jsonify(_mock_experiments())
+    with db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        records = conn.execute('SELECT * FROM experiment_records ORDER BY id DESC LIMIT 50').fetchall()
+    return jsonify([_decode_record(dict(r)) for r in records])
 
-def _mock_experiments():
-    return [
-        {'experiment_id': 'exp_demo_nsga2', 'algorithm': 'NSGA-II',
-         'hyperparameters': {'pop': 100, 'gen': 200}, 'data_version': 'v2.0',
-         'runtime': 123.4, 'status': 'completed', 'timestamp': datetime.utcnow().isoformat()},
-        {'experiment_id': 'exp_demo_rl', 'algorithm': 'PPO-Lagrangian-C3',
-         'hyperparameters': {'steps': 300000, 'lr': '3e-4'}, 'data_version': 'v2.0',
-         'runtime': 456.7, 'status': 'completed', 'timestamp': datetime.utcnow().isoformat()},
-    ]
 
 @app.route('/api/experiments/<exp_id>')
 def experiment_detail(exp_id):
-    try:
-        conn = sqlite3.connect(CACHE_DB)
-        row = conn.execute('SELECT * FROM experiment_records WHERE experiment_id=?', (exp_id,)).fetchone()
-        cols = [d[0] for d in conn.execute('PRAGMA table_info(experiment_records)').fetchall()]
-        conn.close()
-        if row:
-            d = dict(zip(cols, row))
-            for k in ('hyperparameters', 'pareto_front'):
-                if d.get(k):
-                    try: d[k] = json.loads(d[k])
-                    except: pass
-            return jsonify(d)
-    except:
-        pass
-    return jsonify({'experiment_id': exp_id, 'algorithm': 'NSGA-II',
-                    'hyperparameters': {}, 'data_version': 'v2.0', 'runtime': 0,
-                    'pareto_front': [], 'timestamp': datetime.utcnow().isoformat()})
+    with db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        record = conn.execute('SELECT * FROM experiment_records WHERE experiment_id=?', (exp_id,)).fetchone()
+    if record is None:
+        return jsonify({'status': 'not_found', 'message': 'Experiment not found'}), 404
+    return jsonify(_decode_record(dict(record)))
 
 @app.route('/api/export', methods=['POST'])
 def export_results():
-    try:
-        d = request.json or {}
-        exp_id = d.get('experiment_id', 'unknown')
-        fmt    = d.get('format', 'csv')
-
-        EXPORT_DIR.mkdir(exist_ok=True)
-        fname = f'export_{exp_id}_{int(time.time())}.{fmt}'
-        fpath = EXPORT_DIR / fname
-        fpath.write_text('Cu_out,As_out,E_total,Net_profit\n4.52,4.75,4120,30.26\n')
-        return jsonify({'status': 'success', 'message': f'导出成功: {fname}', 'filename': fname})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+    data = request.get_json(silent=True) or {}
+    if data.get('format', 'csv') != 'csv':
+        return jsonify({'status': 'error', 'message': 'Only CSV export is supported'}), 422
+    with db_connection() as conn:
+        record = conn.execute('SELECT pareto_front FROM experiment_records WHERE experiment_id=?',
+                              (str(data.get('experiment_id', '')),)).fetchone()
+    if record is None:
+        return jsonify({'status': 'not_found', 'message': 'Experiment not found'}), 404
+    result = json.loads(record[0])
+    rows = result.get('front', [])
+    if not rows:
+        return jsonify({'status': 'error', 'message': 'This experiment has no candidate rows'}), 409
+    columns = ['condition','Cu_in','T_A','I_A','Q_A','T_B','I_B','Q_B','t',
+               'Cu_out','As_out','E','profit','feasible','model_source']
+    buffer = io.StringIO(newline='')
+    writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction='ignore')
+    writer.writeheader(); writer.writerows(rows)
+    name = 'experiment_' + uuid.uuid4().hex + '.csv'
+    (EXPORT_DIR / name).write_text(buffer.getvalue(), encoding='utf-8-sig')
+    return jsonify({'status': 'success', 'filename': name, 'url': '/exports/' + name,
+                    'rows': len(rows), 'message': 'Actual computed candidate rows exported'})
 
 # ════════════════════════════════════════════════════════════════════════════════
 # ADMIN / LOGS
@@ -1080,50 +634,139 @@ def get_logs():
 
 @app.route('/api/users')
 def get_users():
-    return jsonify([
-        {'id': 1, 'username': 'admin', 'role': 'researcher', 'created_at': '2024-01-01'},
-        {'id': 2, 'username': 'operator', 'role': 'operator', 'created_at': '2024-01-01'},
-    ])
+    # This is a local research tool, not a multi-user authentication service.
+    return jsonify([])
 
 @app.route('/api/feedback')
 def get_feedback():
-    return jsonify([])
+    with db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('SELECT * FROM feedback ORDER BY id DESC LIMIT 50').fetchall()
+    return jsonify([dict(row) for row in rows])
 
 @app.route('/api/feedback', methods=['POST'])
 def add_feedback():
+    data = request.get_json(silent=True) or {}
+    content = data.get('content', data.get('feedback', ''))
+    if not isinstance(content, str) or not 1 <= len(content.strip()) <= 2000:
+        return jsonify({'status': 'error', 'message': 'Feedback must contain 1 to 2,000 characters'}), 422
+    with db_connection() as conn:
+        conn.execute('INSERT INTO feedback (content,timestamp) VALUES (?,?)',
+                     (content.strip(), datetime.now().isoformat()))
     return jsonify({'status': 'success'})
 
 # ── SocketIO events ───────────────────────────────────────────────────────────
 @socketio.on('connect')
 def on_connect():
-    emit('connected', {'msg': 'CuEW v2.0 backend connected'})
-    n = sum(len(v) for v in _models.values())
-    emit('model_status', {'status': 'ready' if n > 0 else 'loading', 'loaded': n})
+    emit('connected', {'msg': 'CuEW local backend connected'})
+    on_ping_models()
 
 @socketio.on('ping_models')
 def on_ping_models():
-    n = sum(len(v) for v in _models.values())
-    emit('model_status', {'status': 'ready' if n > 0 else 'loading', 'loaded': n})
+    count = sum(len(v) for v in _models.values())
+    emit('model_status', {'status': 'demo' if DEMO_MODE else ('ready' if count else 'unavailable'),
+                         'loaded': count, 'rl_loaded': len(_rl_models), 'demo': DEMO_MODE})
 
 # ── Static files ──────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
-    gui = BASE_DIR / 'copper_ew_gui_en.html'
-    print(f"[DEBUG] BASE_DIR: {BASE_DIR}")
-    print(f"[DEBUG] GUI exists: {gui.exists()}")
-    if gui.exists():
-        return open(str(gui), 'r', encoding='utf-8').read()
-    return "<h1>File not found</h1>"
+    return send_from_directory(BASE_DIR, 'copper_ew_gui_en.html')
 
 @app.route('/<path:path>')
 def static_files(path):
-    return send_from_directory(str(BASE_DIR), path)
+    # Never expose source, uploaded data, model weights, database or runtime files.
+    if path == 'release_workflow.js':
+        return send_from_directory(BASE_DIR, path)
+    if path == 'favicon.ico':
+        return '', 204
+    abort(404)
+
+
+# Shared input/storage helpers and local-only HTTP boundary.
+def _bounded_int(value, low, high, label):
+    number = finite_number(value, label)
+    if number != int(number) or not low <= number <= high:
+        raise ValueError(f'{label} must be an integer between {low} and {high}')
+    return int(number)
+
+
+def _validate_data_row(data, source='manual'):
+    if not isinstance(data, dict):
+        raise ValueError('A record must be an object')
+    mode = data.get('mode')
+    if mode not in MODES.values():
+        raise ValueError('mode must be three_stage, four_stage, or serial')
+    condition = next(c for c, m in MODES.items() if m == mode)
+    required = ('cu_in', 'temperature', 'current', 'flow', 'duration')
+    if any(k not in data for k in required):
+        raise ValueError('Required columns: cu_in, temperature, current, flow, duration, mode')
+    row = {k: finite_number(data[k], k) for k in required}
+    # A single-row import records one common setpoint for both series units.
+    normalize_params(condition, _row_params({**row, 'mode': mode}, condition))
+    return {**row, 'mode': mode, 'source': source, 'timestamp': datetime.now().isoformat()}
+
+
+def _row_params(row, condition):
+    params = {'Cu_in': row['cu_in'], 't': row['duration']}
+    for unit in (('A','B') if condition == 3 else (('A',) if condition == 1 else ('B',))):
+        params.update({f'T_{unit}': row['temperature'], f'I_{unit}': row['current'], f'Q_{unit}': row['flow']})
+    return params
+
+
+def _decode_record(record):
+    for key in ('hyperparameters', 'pareto_front'):
+        record[key] = json.loads(record[key]) if record.get(key) else {}
+    return record
+
+
+@app.before_request
+def _same_origin_writes():
+    if request.method in ('POST','PUT','PATCH','DELETE'):
+        origin = request.headers.get('Origin')
+        if origin and origin.rstrip('/') != request.host_url.rstrip('/'):
+            return jsonify({'status':'error','message':'Cross-origin writes are not allowed'}), 403
+
+
+@app.after_request
+def _security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'same-origin'
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/exports/<filename>')
+def download_export(filename):
+    if not filename.startswith('experiment_') or not filename.endswith('.csv') or secure_filename(filename) != filename:
+        abort(404)
+    return send_from_directory(EXPORT_DIR, filename, as_attachment=True, mimetype='text/csv')
+
+
+@app.route('/api/data/preprocess', methods=['POST'])
+def preprocess_records():
+    # Imports are already validated; this endpoint reports an actual read-only audit.
+    with db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('SELECT * FROM process_data').fetchall()
+    invalid = sum(1 for row in rows if not _record_is_valid(dict(row)))
+    return jsonify({'status':'success','checked':len(rows),'invalid':invalid,
+                    'message':'Validation audit completed; no records were modified'})
+
+
+def _record_is_valid(row):
+    try:
+        _validate_data_row(row)
+        return True
+    except (ValueError,TypeError):
+        return False
+
 
 if __name__ == '__main__':
     print("=" * 60)
     print(" Copper EW Intelligent Optimization System — Backend v2.0")
     print(f" Base dir: {BASE_DIR}")
     print(f" Models dir: {MODEL_DIR}")
-    print(f" DB: {DB_URL}")
+    print(" Database: local runtime storage; sensitive connection values are not displayed")
     print("=" * 60)
-    socketio.run(app, debug=True, host='0.0.0.0', port=5001, use_reloader=False)
+    socketio.run(app, debug=False, host='127.0.0.1', port=int(os.environ.get('JCP_PORT', '5001')), use_reloader=False, allow_unsafe_werkzeug=True)

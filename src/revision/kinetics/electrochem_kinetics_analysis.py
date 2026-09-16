@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import openpyxl
 
-ESRL = Path(r"E:/postgraduate1/Code/ESRLCMO")
+ESRL = Path(__file__).resolve().parents[2] / 'esrlcmo_project'
 PDP = ESRL / "modeling" / "interpretability_outputs" / "pdp"
 OUT = Path(__file__).resolve().parent / "electrochem_kinetics_results"
 OUT.mkdir(parents=True, exist_ok=True)
